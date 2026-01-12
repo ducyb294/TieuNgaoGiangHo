@@ -53,6 +53,15 @@ const commands = [
           { name: "Lẻ", value: "le" }
         )
     ),
+  new SlashCommandBuilder()
+    .setName("bicanh")
+    .setDescription("Xem chỉ số thủ vệ bí cảnh"),
+  new SlashCommandBuilder()
+    .setName("sotaithuve")
+    .setDescription("Tỉ thí thủ vệ bí cảnh để tăng level"),
+  new SlashCommandBuilder()
+    .setName("farmbicanh")
+    .setDescription("Bắt đầu farm bí cảnh (chỉ cần gọi 1 lần duy nhất)"),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

@@ -73,6 +73,29 @@ function initializeSchema(db) {
     );
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS bicanh_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      level INTEGER NOT NULL DEFAULT 1
+    );
+  `);
+
+  db.run(`
+    INSERT INTO bicanh_state (id, level)
+    SELECT 1, 1
+    WHERE NOT EXISTS (SELECT 1 FROM bicanh_state WHERE id = 1);
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS farm_sessions (
+      user_id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      message_id TEXT NOT NULL,
+      last_tick INTEGER NOT NULL,
+      total_earned INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
   const columns = db.prepare(`PRAGMA table_info(users)`);
   const existing = [];
   while (columns.step()) {
