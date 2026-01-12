@@ -290,6 +290,7 @@ async function handleInfo(interaction, db, persist) {
     }
 
     user = applyPassiveExpForUser(db, persist, user);
+    await interaction.deferReply({ephemeral: false});
 
     const requiredExp = expToNext(user.level);
     const {buffer, fileName} = await buildInfoCard({
@@ -310,7 +311,7 @@ async function handleInfo(interaction, db, persist) {
         },
     });
 
-    await interaction.reply({
+    await interaction.editReply({
         files: [{attachment: buffer, name: fileName}],
         ephemeral: false,
     });
