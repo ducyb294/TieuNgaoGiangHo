@@ -143,6 +143,10 @@ async function runPassiveExpTick() {
                         await bicanhService.handleFarmBicanh(interaction, db, persist);
                     }
 
+                    if (interaction.commandName === "nhanthuongbicanh") {
+                        await bicanhService.handleClaimFarm(interaction, db, persist);
+                    }
+
                     if (interaction.commandName === "shop") {
                         await shopService.handleShop(interaction, db, persist);
                     }

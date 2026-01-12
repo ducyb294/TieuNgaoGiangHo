@@ -16,6 +16,7 @@ function createBicanhService({
   clientRefGetter,
 }) {
   let farmTimer = null;
+  const MAX_FARM_CATCHUP_TICKS = 360; // 6 hours
 
   const getBicanhLevel = (db) => {
     const stmt = db.prepare("SELECT level FROM bicanh_state WHERE id = 1");
@@ -270,7 +271,7 @@ function createBicanhService({
     });
 
     const message = await thread.send(
-      `⛏️ Farm bí cảnh bắt đầu\nThủ vệ hiện tại: Level ${guardLevel}\nNhận mỗi phút: level x 1000 (±20%)\nĐang chờ tick đầu tiên...`
+      `⛏️ Farm bí cảnh bắt đầu\nThủ vệ hiện tại: Level ${guardLevel}\nĐang chờ tick đầu tiên...`
     );
 
     saveFarmSession(db, persist, {
@@ -283,6 +284,79 @@ function createBicanhService({
 
     await interaction.reply({
       content: `Đã bắt đầu farm bí cảnh cho bạn tại thread ${thread.toString()}.`,
+      ephemeral: true,
+    });
+  }
+
+  async function handleClaimFarm(interaction, db, persist) {
+    if (BICANH_CHANNEL_ID && interaction.channelId !== BICANH_CHANNEL_ID) {
+      await interaction.reply({ content: TEXT.bicanhChannelOnly, ephemeral: true });
+      return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+      user = createUser(
+        db,
+        persist,
+        member.id,
+        getBaseNameFromMember ? getBaseNameFromMember(member) : (member.displayName || member.user.username),
+        Date.now()
+      );
+    }
+
+    const guardLevel = getBicanhLevel(db);
+    if (guardLevel <= 1) {
+      await interaction.reply({ content: "Cần thắng thủ vệ ít nhất 1 lần (lv > 1) để farm.", ephemeral: true });
+      return;
+    }
+
+    const session = getFarmSession(db, user.user_id);
+    if (!session) {
+      await interaction.reply({ content: "Bạn chưa bắt đầu farm bí cảnh.", ephemeral: true });
+      return;
+    }
+
+    const pending = Number(session.total_earned || 0);
+    const now = Date.now();
+
+    if (pending <= 0) {
+      await interaction.reply({ content: "Không có thưởng để nhận.", ephemeral: true });
+      return;
+    }
+
+    db.run("BEGIN");
+    db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [pending, user.user_id]);
+    db.run(
+      "UPDATE farm_sessions SET total_earned = 0, last_tick = ? WHERE user_id = ?",
+      [now, user.user_id]
+    );
+    db.run("COMMIT");
+    persist();
+
+    try {
+      const client = clientRefGetter();
+      if (client) {
+        const thread = await client.channels.fetch(session.thread_id);
+        if (thread) {
+          const message = await thread.messages.fetch(session.message_id);
+          const content =
+            `⛏️ Farm bí cảnh\n` +
+            `Thủ vệ: Level ${guardLevel}\n` +
+            `Nhận mới: +0 ${CURRENCY_NAME}\n` +
+            `Tổng tích lũy: 0 ${CURRENCY_NAME}\n` +
+            `Cập nhật: ${new Date(now).toLocaleString("vi-VN")}`;
+          await message.edit({ content });
+        }
+      }
+    } catch (error) {
+      console.error("Update farm message after claim failed:", error);
+    }
+
+    await interaction.reply({
+      content: `Đã nhận **${formatNumber(pending)} ${CURRENCY_NAME}** từ farm bí cảnh.`,
       ephemeral: true,
     });
   }
@@ -310,18 +384,17 @@ function createBicanhService({
         const ticks = Math.floor((now - s.last_tick) / FARM_INTERVAL_MS);
         if (ticks <= 0) return;
 
-        const cappedTicks = Math.min(ticks, 120);
+        const cappedTicks = Math.min(ticks, MAX_FARM_CATCHUP_TICKS);
         let delta = 0;
         for (let i = 0; i < cappedTicks; i++) {
           const roll = 0.8 + Math.random() * 0.4;
-          delta += Math.round(guardLevel * 1000 * roll);
+          delta += Math.round(guardLevel * 5000 * roll);
         }
         const newLast = s.last_tick + cappedTicks * FARM_INTERVAL_MS;
         db.run(
           "UPDATE farm_sessions SET last_tick = ?, total_earned = total_earned + ? WHERE user_id = ?",
           [newLast, delta, s.user_id]
         );
-        db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [delta, s.user_id]);
         results.push({
           user_id: s.user_id,
           thread_id: s.thread_id,
@@ -368,6 +441,7 @@ function createBicanhService({
     handleBicanh,
     handleSoTaiThuVe,
     handleFarmBicanh,
+    handleClaimFarm,
     startFarmLoop,
     processFarmTick,
     getDefenderStats,

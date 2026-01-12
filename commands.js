@@ -63,6 +63,9 @@ const commands = [
     .setName("farmbicanh")
     .setDescription("Bắt đầu farm bí cảnh (chỉ cần gọi 1 lần duy nhất)"),
   new SlashCommandBuilder()
+    .setName("nhanthuongbicanh")
+    .setDescription("Nhận thưởng farm bí cảnh và reset thời gian tích lũy"),
+  new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Mua chỉ số trong bí cảnh"),
   new SlashCommandBuilder()
@@ -94,7 +97,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("backup")
-    .setDescription("Backup file DB (chỉ admin)"),
+    .setDescription("Backup"),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

@@ -10,6 +10,7 @@ Discord bot with leveling, nickname formatting, and currency tracking.
 - Lenh `/daomo` tieu the luc de dao mo linh thach trong kenh rieng.
 - Lenh `/chanle` va `/allinchanle` cuoc linh thach chan/le, tra thuong x1.95, gui bieu do lich su 20 lan gan nhat.
 - Lenh `/bicanh` xem thu ve, `/sotaithuve` danh thu ve tang level, `/farmbicanh` tao thread farm moi phut nhan linh thach (auto tiep tuc sau restart).
+- Lenh `/nhanthuongbicanh` nhan toan bo linh thach dang tich luy farm va reset thoi gian.
 - Lenh `/shop` va `/muasll` mua chi so (ATK/DEF/HP random ~1000 ±20% moi lan, chi so % +1% moi lan; gia tang theo cong thuc price).
 - Nickname tu dong cap nhat khi len level.
 - Luu tru SQLite qua `sql.js`, luu file tai `DB_PATH`.
