@@ -57,9 +57,27 @@ function initializeSchema(db) {
       crit_rate REAL NOT NULL DEFAULT 0 CHECK (crit_rate <= 100),
       crit_resistance REAL NOT NULL DEFAULT 0,
       armor_penetration REAL NOT NULL DEFAULT 0,
-      armor_resistance REAL NOT NULL DEFAULT 0
+      armor_resistance REAL NOT NULL DEFAULT 0,
+      stamina INTEGER NOT NULL DEFAULT 10,
+      last_stamina_timestamp INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  const columns = db.prepare(`PRAGMA table_info(users)`);
+  const existing = [];
+  while (columns.step()) {
+    const row = columns.getAsObject();
+    existing.push(row.name);
+  }
+  columns.free();
+
+  const addColumnIfMissing = (name, definition) => {
+    if (existing.includes(name)) return;
+    db.run(`ALTER TABLE users ADD COLUMN ${name} ${definition};`);
+  };
+
+  addColumnIfMissing("stamina", "INTEGER NOT NULL DEFAULT 10");
+  addColumnIfMissing("last_stamina_timestamp", "INTEGER NOT NULL DEFAULT 0");
 }
 
 module.exports = { getDatabase };

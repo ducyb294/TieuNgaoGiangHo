@@ -8,12 +8,21 @@ const {
 const { buildInfoCard } = require("./services/infoCard");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
-const {CURRENCY_NAME, STAT_LABELS, TEXT} = require("./constants");
+const {formatNumber} = require("./utils/format");
+const {
+    CURRENCY_NAME,
+    STAT_LABELS,
+    TEXT,
+    MAX_STAMINA,
+    STAMINA_INTERVAL_MS,
+    rollLinhThachReward
+} = require("./constants");
 
 const EXP_PER_MINUTE = 1;
 const MAX_BASE_NAME_LENGTH = 22;
 const INFO_CHANNEL_ID = process.env.INFO_CHANNEL_ID;
 const RENAME_CHANNEL_ID = process.env.RENAME_CHANNEL_ID;
+const MINING_CHANNEL_ID = process.env.MINING_CHANNEL_ID;
 
 async function withDatabase(callback) {
     const {db, persist, close} = await getDatabase(process.env.DB_PATH);
@@ -63,6 +72,10 @@ async function runPassiveExpTick() {
                 if (interaction.commandName === "info") {
                     await handleInfo(interaction, db, persist);
                 }
+
+                if (interaction.commandName === "daomo") {
+                    await handleMining(interaction, db, persist);
+                }
             });
         } catch (error) {
             console.error("Interaction error:", error);
@@ -99,7 +112,9 @@ function getUser(db, userId) {
                 crit_rate,
                 crit_resistance,
                 armor_penetration,
-                armor_resistance
+                armor_resistance,
+                stamina,
+                last_stamina_timestamp
          FROM users
          WHERE user_id = ?`
     );
@@ -115,9 +130,9 @@ function createUser(db, persist, userId, baseName, lastExpTimestamp) {
     db.run(
         `INSERT INTO users (user_id, base_name, level, exp, currency, last_exp_timestamp,
                             attack, defense, health, dodge, accuracy, crit_rate, crit_resistance,
-                            armor_penetration, armor_resistance)
-         VALUES (?, ?, 1, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0)`,
-        [userId, nameToSave, lastExpTimestamp]
+                            armor_penetration, armor_resistance, stamina, last_stamina_timestamp)
+         VALUES (?, ?, 1, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?)`,
+        [userId, nameToSave, lastExpTimestamp, MAX_STAMINA, lastExpTimestamp]
     );
     persist();
     return getUser(db, userId);
@@ -143,6 +158,37 @@ function applyPassiveExpForUser(db, persist, user, now = Date.now()) {
         exp: updatedExp,
         last_exp_timestamp: updatedTimestamp,
     };
+}
+
+function applyStaminaRegen(db, persist, user, now = Date.now()) {
+    const currentStamina = Number(user.stamina ?? 0);
+    const last = Number(user.last_stamina_timestamp || now);
+
+    if (currentStamina >= MAX_STAMINA) {
+        if (last !== now) {
+            db.run(
+                "UPDATE users SET last_stamina_timestamp = ? WHERE user_id = ?",
+                [now, user.user_id]
+            );
+            persist();
+        }
+        return {...user, stamina: MAX_STAMINA, last_stamina_timestamp: now};
+    }
+
+    const elapsedHours = Math.floor((now - last) / STAMINA_INTERVAL_MS);
+    if (elapsedHours <= 0) {
+        return user;
+    }
+
+    const gain = Math.min(elapsedHours, MAX_STAMINA - currentStamina);
+    const newStamina = currentStamina + gain;
+    const newLast = last + gain * STAMINA_INTERVAL_MS;
+    db.run(
+        "UPDATE users SET stamina = ?, last_stamina_timestamp = ? WHERE user_id = ?",
+        [newStamina, newLast, user.user_id]
+    );
+    persist();
+    return {...user, stamina: newStamina, last_stamina_timestamp: newLast};
 }
 
 function applyPassiveExpTickAll(db, persist) {
@@ -319,6 +365,79 @@ async function handleInfo(interaction, db, persist) {
     });
 }
 
+async function handleMining(interaction, db, persist) {
+    if (MINING_CHANNEL_ID && interaction.channelId !== MINING_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.miningChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+    user = applyStaminaRegen(db, persist, user);
+
+    const available = Number(user.stamina || 0);
+    const now = Date.now();
+
+    if (available <= 0) {
+        const elapsed = now - (user.last_stamina_timestamp || now);
+        const waitMs = Math.max(0, STAMINA_INTERVAL_MS - elapsed);
+        const minutes = Math.ceil(waitMs / 60000);
+        await interaction.reply({
+            content: `${TEXT.noStamina} Hồi trong khoảng ${minutes} phút.`,
+            ephemeral: true,
+        });
+        return;
+    }
+
+    const rewards = [];
+    let total = 0;
+    for (let i = 0; i < available; i++) {
+        const reward = rollLinhThachReward();
+        rewards.push(reward);
+        total += reward.amount;
+    }
+
+    const tierSummary = rewards.reduce((acc, r) => {
+        if (!acc[r.tier]) {
+            acc[r.tier] = {count: 0, amount: 0};
+        }
+        acc[r.tier].count += 1;
+        acc[r.tier].amount += r.amount;
+        return acc;
+    }, {});
+
+    db.run(
+        "UPDATE users SET currency = currency + ?, stamina = 0, last_stamina_timestamp = ? WHERE user_id = ?",
+        [total, now, user.user_id]
+    );
+    persist();
+
+    const lines = Object.entries(tierSummary)
+        .sort((a, b) => b[1].amount - a[1].amount)
+        .map(([tier, info]) => `- ${tier}: ${info.count} lượt • +${formatNumber(info.amount)} ${CURRENCY_NAME}`)
+        .join("\n");
+
+    await interaction.reply({
+        embeds: [
+            {
+                color: 0x8b5cf6,
+                title: "⛏️ Đào mỏ linh thạch",
+                description:
+                    `Đã đào ${available} lượt và nhận **${formatNumber(total)} ${CURRENCY_NAME}**.\n` +
+                    (lines ? `\n${lines}` : ""),
+                footer: {text: `/daomo • Thể lực: 0/${MAX_STAMINA}`},
+                timestamp: new Date()
+            }
+        ]
+    });
+}
+
 
 function applyLevelUps(db, persist, user) {
     let currentLevel = user.level;
@@ -374,8 +493,4 @@ async function updateNickname(member, baseName, level) {
 
 function formatNickname(baseName, level) {
     return `${baseName} - Level ${level}`;
-}
-
-function buildStatsLine() {
-    return `Chỉ số: ${STAT_LABELS.attack}, ${STAT_LABELS.defense}, ${STAT_LABELS.health}, ${STAT_LABELS.dodge}, ${STAT_LABELS.accuracy}, ${STAT_LABELS.critRate}, ${STAT_LABELS.critDamageResistance}, ${STAT_LABELS.armorPenetration}, ${STAT_LABELS.armorResistance}.`;
 }

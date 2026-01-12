@@ -17,6 +17,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName("info")
     .setDescription("Xem thông tin nhân vật"),
+  new SlashCommandBuilder()
+    .setName("daomo")
+    .setDescription("Đào mỏ linh thạch (tiêu thể lực)")
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
