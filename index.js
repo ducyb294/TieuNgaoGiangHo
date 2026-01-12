@@ -14,11 +14,28 @@ const MAX_BASE_NAME_LENGTH = 22;
 const INFO_CHANNEL_ID = process.env.INFO_CHANNEL_ID;
 const RENAME_CHANNEL_ID = process.env.RENAME_CHANNEL_ID;
 
-(async () => {
-    const {db, persist} = await getDatabase(process.env.DB_PATH);
+async function withDatabase(callback) {
+    const {db, persist, close} = await getDatabase(process.env.DB_PATH);
+    try {
+        return await callback(db, persist);
+    } finally {
+        close();
+    }
+}
 
+async function runPassiveExpTick() {
+    try {
+        await withDatabase((db, persist) => {
+            applyPassiveExpTickAll(db, persist);
+        });
+    } catch (error) {
+        console.error("Passive exp tick failed:", error);
+    }
+}
+
+(async () => {
     // Catch up exp for downtime before the bot starts handling events.
-    applyPassiveExpTickAll(db, persist);
+    await runPassiveExpTick();
 
     const client = new Client({
         intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
@@ -33,13 +50,15 @@ const RENAME_CHANNEL_ID = process.env.RENAME_CHANNEL_ID;
         if (!interaction.isChatInputCommand()) return;
 
         try {
-            if (interaction.commandName === "doiten") {
-                await handleRename(interaction, db, persist);
-            }
+            await withDatabase(async (db, persist) => {
+                if (interaction.commandName === "doiten") {
+                    await handleRename(interaction, db, persist);
+                }
 
-            if (interaction.commandName === "dotpha") {
-                await handleBreakthrough(interaction, db, persist);
-            }
+                if (interaction.commandName === "dotpha") {
+                    await handleBreakthrough(interaction, db, persist);
+                }
+            });
         } catch (error) {
             console.error("Interaction error:", error);
             if (!interaction.replied) {
@@ -51,7 +70,7 @@ const RENAME_CHANNEL_ID = process.env.RENAME_CHANNEL_ID;
         }
     });
 
-    setInterval(() => applyPassiveExpTickAll(db, persist), 60 * 1000);
+    setInterval(runPassiveExpTick, 60 * 1000);
 
     await client.login(process.env.DISCORD_TOKEN);
 })().catch((error) => {

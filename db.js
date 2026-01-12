@@ -2,39 +2,42 @@ const fs = require("fs");
 const path = require("path");
 const initSqlJs = require("sql.js");
 
-let databasePromise;
+let sqlModulePromise;
 
 async function getDatabase(dbPathFromEnv) {
-  if (databasePromise) {
-    return databasePromise;
-  }
-
-  databasePromise = (async () => {
-    const SQL = await initSqlJs({
+  if (!sqlModulePromise) {
+    sqlModulePromise = initSqlJs({
       locateFile: (file) => path.join(__dirname, "node_modules/sql.js/dist", file),
     });
+  }
 
-    const dbPath = dbPathFromEnv || "./data.db";
-    const hasDbFile = fs.existsSync(dbPath);
-    const fileBuffer = hasDbFile ? fs.readFileSync(dbPath) : null;
-    const db = new SQL.Database(fileBuffer);
+  const SQL = await sqlModulePromise;
+  const dbPath = dbPathFromEnv || "./data.db";
+  const hasDbFile = fs.existsSync(dbPath);
+  const fileBuffer = hasDbFile ? fs.readFileSync(dbPath) : null;
+  const db = new SQL.Database(fileBuffer);
 
-    initializeSchema(db);
+  initializeSchema(db);
 
-    const persist = () => {
-      const data = db.export();
-      const buffer = Buffer.from(data);
-      fs.writeFileSync(dbPath, buffer);
-    };
+  const persist = () => {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+  };
 
-    if (!hasDbFile) {
-      persist();
+  if (!hasDbFile) {
+    persist();
+  }
+
+  const close = () => {
+    try {
+      db.close();
+    } catch (error) {
+      console.error("Error closing database:", error);
     }
+  };
 
-    return { db, persist, dbPath };
-  })();
-
-  return databasePromise;
+  return { db, persist, dbPath, close };
 }
 
 function initializeSchema(db) {
