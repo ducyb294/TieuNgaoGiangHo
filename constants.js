@@ -42,22 +42,22 @@ function rollLinhThachReward() {
   if (r < 5) {
     return {
       tier: "Cực phẩm",
-      amount: Math.floor(Math.random() * (100000 - 90000 + 1) + 90000) * 10,
+      amount: Math.floor(Math.random() * (100000 - 90000 + 1) + 90000) * 100,
     };
   } else if (r < 15) {
     return {
       tier: "Thượng phẩm",
-      amount: Math.floor(Math.random() * (80000 - 50000 + 1) + 50000) * 10,
+      amount: Math.floor(Math.random() * (80000 - 50000 + 1) + 50000) * 100,
     };
   } else if (r < 40) {
     return {
       tier: "Trung phẩm",
-      amount: Math.floor(Math.random() * (40000 - 10000 + 1) + 10000) * 10,
+      amount: Math.floor(Math.random() * (40000 - 10000 + 1) + 10000) * 100,
     };
   } else {
     return {
       tier: "Hạ phẩm",
-      amount: Math.floor(Math.random() * (5000 - 500 + 1) + 500) * 10,
+      amount: Math.floor(Math.random() * (5000 - 500 + 1) + 500) * 100,
     };
   }
 }
