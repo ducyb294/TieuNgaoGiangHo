@@ -6,12 +6,12 @@ const STAT_LABELS = {
   attack: "Tấn Công",
   defense: "Phòng Thủ",
   health: "Máu",
-  dodge: "Né Tránh (%)",
-  accuracy: "Chính Xác (%)",
-  critRate: "Tỉ Lệ Chí Mạng (%)",
-  critDamageResistance: "Kháng Sát Thương Chí Mạng (%)",
-  armorPenetration: "Xuyên Giáp (%)",
-  armorResistance: "Kháng Xuyên Giáp (%)",
+  dodge: "Né Tránh",
+  accuracy: "Chính Xác",
+  critRate: "Tỉ Lệ Chí Mạng",
+  critDamageResistance: "Kháng ST Chí Mạng",
+  armorPenetration: "Xuyên Giáp",
+  armorResistance: "Kháng Xuyên Giáp",
 };
 
 const TEXT = {

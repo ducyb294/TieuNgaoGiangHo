@@ -298,6 +298,7 @@ async function handleInfo(interaction, db, persist) {
         level: user.level,
         exp: user.exp,
         expRequired: requiredExp,
+        avatarUrl: interaction.user.displayAvatarURL({extension: "png", size: 256}),
         stats: {
             attack: user.attack,
             defense: user.defense,
