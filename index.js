@@ -216,7 +216,6 @@ async function handleBreakthrough(interaction, db, persist) {
             `**${TEXT.levelUpSuccess}**\n\n` +
             `🔺 **Level:** ${level}\n` +
             `✨ **Exp còn lại:** ${exp}\n` +
-            `${statsLine}\n` +
             `💰 **${CURRENCY_NAME}:** ${user.currency}`,
         footer: {
           text: "/dotpha"

@@ -4,23 +4,23 @@ const { REST, Routes, SlashCommandBuilder } = require("discord.js");
 const commands = [
   new SlashCommandBuilder()
     .setName("doiten")
-    .setDescription("Doi nickname theo dinh dang Ten - Level x")
+    .setDescription("Đổi tên mới")
     .addStringOption((option) =>
       option
         .setName("ten")
-        .setDescription("Ten moi, khong ky tu dac biet")
+        .setDescription("Tên mới")
         .setRequired(true)
     ),
   new SlashCommandBuilder()
     .setName("dotpha")
-    .setDescription("Dot pha len level khi du exp"),
+    .setDescription("Nâng level khi đủ exp"),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
-    console.log("Dang dang ky slash command...");
+    console.log("Đang đăng ký slash command...");
 
     await rest.put(
       Routes.applicationGuildCommands(
@@ -30,7 +30,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
       { body: commands }
     );
 
-    console.log("Dang ky lenh thanh cong!");
+    console.log("Đăng ký lệnh thành công!");
   } catch (error) {
     console.error(error);
   }
