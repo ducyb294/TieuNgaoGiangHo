@@ -82,7 +82,7 @@ async function fetchImageBuffer(url) {
   }
 }
 
-async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl }) {
+async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl, currency }) {
   const safeName = sanitizeSvgText(name || "NHÂN VẬT");
   const safeLevel = Math.max(0, Number(level) || 0);
   const safeExp = Math.max(0, Number(exp) || 0);
@@ -169,7 +169,7 @@ async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl }
   });
   composites.push({
     input: createTextSvg(
-      `EXP: ${formatNumber(safeExp)} / ${formatNumber(requiredExp)}`,
+      `EXP: ${formatNumber(safeExp)} | Linh Thạch: ${formatNumber(currency)}`,
       LAYOUT.exp.width,
       LAYOUT.exp.height,
       { fontSize: 38, color: "#cbb185", fontWeight: 600 }

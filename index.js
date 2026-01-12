@@ -310,6 +310,7 @@ async function handleInfo(interaction, db, persist) {
             armor_penetration: user.armor_penetration,
             armor_resistance: user.armor_resistance,
         },
+        currency: user.currency,
     });
 
     await interaction.editReply({
