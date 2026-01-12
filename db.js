@@ -63,6 +63,14 @@ function initializeSchema(db) {
     );
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS chanle_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      result TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+  `);
+
   const columns = db.prepare(`PRAGMA table_info(users)`);
   const existing = [];
   while (columns.step()) {

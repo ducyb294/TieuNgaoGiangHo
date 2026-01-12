@@ -8,6 +8,7 @@ Discord bot with leveling, nickname formatting, and currency tracking.
 - Lenh `/doiten` doi nickname theo dinh dang `Ten - Level x` (chi dung trong kenh doi ten).
 - Lenh `/info` hien thi anh thong tin nhan vat (level, exp, chi so).
 - Lenh `/daomo` tieu the luc de dao mo linh thach trong kenh rieng.
+- Lenh `/chanle` va `/allinchanle` cuoc linh thach chan/le, tra thuong x1.95, gui bieu do lich su 20 lan gan nhat.
 - Nickname tu dong cap nhat khi len level.
 - Luu tru SQLite qua `sql.js`, luu file tai `DB_PATH`.
 - Chi so nguoi choi: tan cong, phong thu, mau, ne tranh (%), chinh xac (%), ti le chi mang (%) toi da 100%, khang sat thuong chi mang (%), xuyen giap (%), khang xuyen giap (%).
@@ -27,6 +28,7 @@ GUILD_ID=
 INFO_CHANNEL_ID=   # Kenh dung /dotpha
 RENAME_CHANNEL_ID= # Kenh dung /doiten
 MINING_CHANNEL_ID= # Kenh dung /daomo
+CHANLE_CHANNEL_ID= # Kenh dung /chanle va /allinchanle
 ```
 
 ## Cai dat
@@ -48,4 +50,5 @@ npm start
 - Cong thuc exp len level: `Math.floor(300 * Math.pow(level, 2.35))` (luu tai `utils/exp.js`).
 - Buff chi so: atk/hp/def duoc cong them `level%` khi tinh toan (giu nguyen gia tri trong DB, cong thuc tai `utils/stats.js`).
 - The luc: hoi 1/lon/1 gio, toi da 10 (luu `stamina`, thoi gian hoi `last_stamina_timestamp`, logic tai `index.js`).
+- Chan/le: tra thuong x1.95, lich su chung 20 lan gan nhat (luu bang `chanle_history`, chart tai `services/chanLeChart.js`).
 - Ten nguoi dung duoc cat toi da 22 ky tu va chi chap nhan chu cai/so/khoang trang.

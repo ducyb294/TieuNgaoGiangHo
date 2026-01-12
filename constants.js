@@ -18,16 +18,20 @@ const TEXT = {
   renameChannelOnly: `Dùng trong ${process.env.RENAME_CHANNEL_ID}`,
   infoChannelOnly: `Dùng trong ${process.env.INFO_CHANNEL_ID}`,
   miningChannelOnly: `Dùng trong ${process.env.MINING_CHANNEL_ID}`,
+  chanLeChannelOnly: `Dùng trong ${process.env.CHANLE_CHANNEL_ID}`,
   renameSuccess: "Đã cập nhật tên.",
   renameInvalid:
     "Tên không hợp lệ.",
   notEnoughExp: "Chưa đủ exp.",
   levelUpSuccess: "Đột phá thành công!",
   noStamina: "Hết thể lực, hãy đợi hồi 1 giờ/lượt.",
+  notEnoughCurrency: "Không đủ linh thạch.",
+  noBalance: "Bạn chưa có linh thạch để cược.",
 };
 
 const MAX_STAMINA = 10;
 const STAMINA_INTERVAL_MS = 60 * 60 * 1000;
+const CHANLE_PAYOUT_RATE = 1.95;
 
 function rollLinhThachReward() {
   const r = Math.random() * 100; // 0-100%
@@ -61,5 +65,6 @@ module.exports = {
   TEXT,
   MAX_STAMINA,
   STAMINA_INTERVAL_MS,
+  CHANLE_PAYOUT_RATE,
   rollLinhThachReward,
 };

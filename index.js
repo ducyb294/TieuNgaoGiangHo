@@ -6,6 +6,7 @@ const {
     Partials,
 } = require("discord.js");
 const { buildInfoCard } = require("./services/infoCard");
+const { buildChanLeChartImage } = require("./services/chanLeChart");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -15,6 +16,7 @@ const {
     TEXT,
     MAX_STAMINA,
     STAMINA_INTERVAL_MS,
+    CHANLE_PAYOUT_RATE,
     rollLinhThachReward
 } = require("./constants");
 
@@ -23,6 +25,7 @@ const MAX_BASE_NAME_LENGTH = 22;
 const INFO_CHANNEL_ID = process.env.INFO_CHANNEL_ID;
 const RENAME_CHANNEL_ID = process.env.RENAME_CHANNEL_ID;
 const MINING_CHANNEL_ID = process.env.MINING_CHANNEL_ID;
+const CHANLE_CHANNEL_ID = process.env.CHANLE_CHANNEL_ID;
 
 async function withDatabase(callback) {
     const {db, persist, close} = await getDatabase(process.env.DB_PATH);
@@ -75,6 +78,14 @@ async function runPassiveExpTick() {
 
                 if (interaction.commandName === "daomo") {
                     await handleMining(interaction, db, persist);
+                }
+
+                if (interaction.commandName === "chanle") {
+                    await handleChanLe(interaction, db, persist, false);
+                }
+
+                if (interaction.commandName === "allinchanle") {
+                    await handleChanLe(interaction, db, persist, true);
                 }
             });
         } catch (error) {
@@ -438,6 +449,75 @@ async function handleMining(interaction, db, persist) {
     });
 }
 
+async function handleChanLe(interaction, db, persist, allIn = false) {
+    if (CHANLE_CHANNEL_ID && interaction.channelId !== CHANLE_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.chanLeChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const choice = interaction.options.getString("chon", true); // "chan" or "le"
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    const currentCurrency = Number(user.currency || 0);
+    const betAmount = allIn ? currentCurrency : Number(interaction.options.getInteger("cuoc", true));
+
+    if (betAmount <= 0 || currentCurrency <= 0) {
+        await interaction.reply({content: TEXT.noBalance, ephemeral: true});
+        return;
+    }
+
+    if (!allIn && betAmount > currentCurrency) {
+        await interaction.reply({content: TEXT.notEnoughCurrency, ephemeral: true});
+        return;
+    }
+
+    const now = Date.now();
+
+    // Deduct bet
+    db.run("UPDATE users SET currency = currency - ? WHERE user_id = ?", [betAmount, user.user_id]);
+
+    const result = rollChanLe();
+    const isWin = result === choice;
+    const payout = isWin ? Math.floor(betAmount * CHANLE_PAYOUT_RATE) : 0;
+
+    if (payout > 0) {
+        db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [payout, user.user_id]);
+    }
+    persist();
+
+    saveChanLeResult(db, persist, result, now);
+    const history = getChanLeHistory(db);
+    const chartBuffer = await buildChanLeChartImage(history);
+
+    const net = isWin ? payout - betAmount : -betAmount;
+    const resultLabel = result === "chan" ? "Chẵn" : "Lẻ";
+    const choiceLabel = choice === "chan" ? "Chẵn" : "Lẻ";
+
+    await interaction.reply({
+        embeds: [
+            {
+                color: isWin ? 0x2ecc71 : 0xe74c3c,
+                title: `🎲 Chẵn Lẻ • Kết quả: ${resultLabel}`,
+                description:
+                    `Bạn chọn **${choiceLabel}** và cược **${formatNumber(betAmount)} ${CURRENCY_NAME}**.\n` +
+                    (isWin
+                        ? `✅ Thắng! Nhận lại **${formatNumber(payout)} ${CURRENCY_NAME}**.`
+                        : `❌ Thua! Mất **${formatNumber(betAmount)} ${CURRENCY_NAME}**.`),
+                footer: {text: "/chanle /allinchanle"},
+                timestamp: new Date()
+            }
+        ],
+        files: [{attachment: chartBuffer, name: "chan-le-history.png"}]
+    });
+}
+
 
 function applyLevelUps(db, persist, user) {
     let currentLevel = user.level;
@@ -493,4 +573,33 @@ async function updateNickname(member, baseName, level) {
 
 function formatNickname(baseName, level) {
     return `${baseName} - Level ${level}`;
+}
+
+function rollChanLe() {
+    return Math.random() < 0.5 ? "chan" : "le";
+}
+
+function saveChanLeResult(db, persist, result, createdAt) {
+    db.run(
+        "INSERT INTO chanle_history (result, created_at) VALUES (?, ?)",
+        [result, createdAt]
+    );
+    db.run(
+        `DELETE FROM chanle_history WHERE id NOT IN (
+            SELECT id FROM chanle_history ORDER BY id DESC LIMIT 20
+        )`
+    );
+    persist();
+}
+
+function getChanLeHistory(db) {
+    const stmt = db.prepare(
+        "SELECT result FROM chanle_history ORDER BY id DESC LIMIT 20"
+    );
+    const rows = [];
+    while (stmt.step()) {
+        rows.push(stmt.getAsObject().result);
+    }
+    stmt.free();
+    return rows.reverse();
 }
