@@ -14,6 +14,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName("dotpha")
     .setDescription("Nâng level khi đủ exp"),
+  new SlashCommandBuilder()
+    .setName("info")
+    .setDescription("Xem thông tin nhân vật"),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

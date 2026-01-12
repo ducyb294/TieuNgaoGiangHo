@@ -5,6 +5,7 @@ const {
     GatewayIntentBits,
     Partials,
 } = require("discord.js");
+const { buildInfoCard } = require("./services/infoCard");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {CURRENCY_NAME, STAT_LABELS, TEXT} = require("./constants");
@@ -57,6 +58,10 @@ async function runPassiveExpTick() {
 
                 if (interaction.commandName === "dotpha") {
                     await handleBreakthrough(interaction, db, persist);
+                }
+
+                if (interaction.commandName === "info") {
+                    await handleInfo(interaction, db, persist);
                 }
             });
         } catch (error) {
@@ -268,6 +273,46 @@ async function handleBreakthrough(interaction, db, persist) {
                 timestamp: new Date()
             }
         ]
+    });
+}
+
+async function handleInfo(interaction, db, persist) {
+    if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.infoChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    const requiredExp = expToNext(user.level);
+    const {buffer, fileName} = await buildInfoCard({
+        name: user.base_name,
+        level: user.level,
+        exp: user.exp,
+        expRequired: requiredExp,
+        stats: {
+            attack: user.attack,
+            defense: user.defense,
+            health: user.health,
+            dodge: user.dodge,
+            accuracy: user.accuracy,
+            crit_rate: user.crit_rate,
+            crit_resistance: user.crit_resistance,
+            armor_penetration: user.armor_penetration,
+            armor_resistance: user.armor_resistance,
+        },
+    });
+
+    await interaction.reply({
+        files: [{attachment: buffer, name: fileName}],
+        ephemeral: false,
     });
 }
 

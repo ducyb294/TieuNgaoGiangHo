@@ -6,6 +6,7 @@ Discord bot with leveling, nickname formatting, and currency tracking.
 - Thuong exp tu dong moi phut (ke ca khi bot restart, exp duoc tinh bo sung).
 - Lenh `/dotpha` de nang level khi du exp (chi dung trong kenh thong tin).
 - Lenh `/doiten` doi nickname theo dinh dang `Ten - Level x` (chi dung trong kenh doi ten).
+- Lenh `/info` hien thi anh thong tin nhan vat (level, exp, chi so).
 - Nickname tu dong cap nhat khi len level.
 - Luu tru SQLite qua `sql.js`, luu file tai `DB_PATH`.
 - Chi so nguoi choi: tan cong, phong thu, mau, ne tranh (%), chinh xac (%), ti le chi mang (%) toi da 100%, khang sat thuong chi mang (%), xuyen giap (%), khang xuyen giap (%).
@@ -43,4 +44,5 @@ npm start
 
 ## Ghi chu
 - Cong thuc exp len level: `Math.floor(300 * Math.pow(level, 2.35))` (luu tai `utils/exp.js`).
+- Buff chi so: atk/hp/def duoc cong them `level%` khi tinh toan (giu nguyen gia tri trong DB, cong thuc tai `utils/stats.js`).
 - Ten nguoi dung duoc cat toi da 22 ky tu va chi chap nhan chu cai/so/khoang trang.
