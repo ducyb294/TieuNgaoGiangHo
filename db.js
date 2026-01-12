@@ -59,7 +59,9 @@ function initializeSchema(db) {
       armor_penetration REAL NOT NULL DEFAULT 0,
       armor_resistance REAL NOT NULL DEFAULT 0,
       stamina INTEGER NOT NULL DEFAULT 10,
-      last_stamina_timestamp INTEGER NOT NULL DEFAULT 0
+      last_stamina_timestamp INTEGER NOT NULL DEFAULT 0,
+      chanle_played INTEGER NOT NULL DEFAULT 0,
+      chanle_won INTEGER NOT NULL DEFAULT 0
     );
   `);
 
@@ -86,6 +88,8 @@ function initializeSchema(db) {
 
   addColumnIfMissing("stamina", "INTEGER NOT NULL DEFAULT 10");
   addColumnIfMissing("last_stamina_timestamp", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing("chanle_played", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing("chanle_won", "INTEGER NOT NULL DEFAULT 0");
 }
 
 module.exports = { getDatabase };

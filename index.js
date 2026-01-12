@@ -125,7 +125,9 @@ function getUser(db, userId) {
                 armor_penetration,
                 armor_resistance,
                 stamina,
-                last_stamina_timestamp
+                last_stamina_timestamp,
+                chanle_played,
+                chanle_won
          FROM users
          WHERE user_id = ?`
     );
@@ -141,8 +143,9 @@ function createUser(db, persist, userId, baseName, lastExpTimestamp) {
     db.run(
         `INSERT INTO users (user_id, base_name, level, exp, currency, last_exp_timestamp,
                             attack, defense, health, dodge, accuracy, crit_rate, crit_resistance,
-                            armor_penetration, armor_resistance, stamina, last_stamina_timestamp)
-         VALUES (?, ?, 1, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?)`,
+                            armor_penetration, armor_resistance, stamina, last_stamina_timestamp,
+                            chanle_played, chanle_won)
+         VALUES (?, ?, 1, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, 0, 0)`,
         [userId, nameToSave, lastExpTimestamp, MAX_STAMINA, lastExpTimestamp]
     );
     persist();
@@ -480,12 +483,18 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
 
     const now = Date.now();
 
-    // Deduct bet
-    db.run("UPDATE users SET currency = currency - ? WHERE user_id = ?", [betAmount, user.user_id]);
+    const playedBefore = Number(user.chanle_played || 0);
+    const winsBefore = Number(user.chanle_won || 0);
 
     const result = rollChanLe();
     const isWin = result === choice;
     const payout = isWin ? Math.floor(betAmount * CHANLE_PAYOUT_RATE) : 0;
+
+    // Deduct bet and update play/win counts
+    db.run(
+        "UPDATE users SET currency = currency - ?, chanle_played = chanle_played + 1, chanle_won = chanle_won + ? WHERE user_id = ?",
+        [betAmount, isWin ? 1 : 0, user.user_id]
+    );
 
     if (payout > 0) {
         db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [payout, user.user_id]);
@@ -499,6 +508,9 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
     const net = isWin ? payout - betAmount : -betAmount;
     const resultLabel = result === "chan" ? "Chẵn" : "Lẻ";
     const choiceLabel = choice === "chan" ? "Chẵn" : "Lẻ";
+    const played = playedBefore + 1;
+    const wins = winsBefore + (isWin ? 1 : 0);
+    const winRate = played > 0 ? ((wins / played) * 100).toFixed(1) : "0.0";
 
     await interaction.reply({
         embeds: [
@@ -509,7 +521,7 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
                     (isWin
                         ? `✅ Thắng! Nhận lại **${formatNumber(payout)} ${CURRENCY_NAME}**.`
                         : `❌ Thua! Mất **${formatNumber(betAmount)} ${CURRENCY_NAME}**.`),
-                footer: {text: "/chanle /allinchanle"},
+                footer: {text: `Tỉ lệ thắng: ${winRate}% (${wins}/${played})`},
                 timestamp: new Date()
             }
         ],
