@@ -1,0 +1,16 @@
+{
+  "name": "tieungaogiangho",
+  "version": "1.0.0",
+  "description": "Discord bot with leveling and rename utilities.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy:commands": "node commands.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5",
+    "sql.js": "^1.13.0"
+  }
+}
