@@ -189,7 +189,12 @@ function createBicanhService({
       armor_resistance: guardStats.armor_resistance,
     };
 
-    const result = simulateCombat(player, defender, { maxRounds: 50 });
+    // Defender luôn đánh trước
+    const result = simulateCombat(
+      { ...defender, priority: 1 },
+      { ...player, priority: 0 },
+      { maxRounds: 50 }
+    );
     const playerWin = result.winner === "player";
 
     let newLevel = guardLevel;

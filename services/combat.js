@@ -3,6 +3,9 @@ function clamp(value, min, max) {
 }
 
 function pickFirstAttacker(a, b) {
+  if (typeof a.priority === "number" && typeof b.priority === "number" && a.priority !== b.priority) {
+    return a.priority > b.priority ? [a, b] : [b, a];
+  }
   if (a.level !== b.level) {
     return a.level > b.level ? [a, b] : [b, a];
   }
