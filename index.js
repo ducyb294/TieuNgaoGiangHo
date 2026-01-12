@@ -504,9 +504,8 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
         embeds: [
             {
                 color: isWin ? 0x2ecc71 : 0xe74c3c,
-                title: `🎲 Chẵn Lẻ • Kết quả: ${resultLabel}`,
+                title: `🎲 Kết quả: ${resultLabel} • Bạn chọn: ${choiceLabel}`,
                 description:
-                    `Bạn chọn **${choiceLabel}** và cược **${formatNumber(betAmount)} ${CURRENCY_NAME}**.\n` +
                     (isWin
                         ? `✅ Thắng! Nhận lại **${formatNumber(payout)} ${CURRENCY_NAME}**.`
                         : `❌ Thua! Mất **${formatNumber(betAmount)} ${CURRENCY_NAME}**.`),
