@@ -1,5 +1,5 @@
 require("dotenv").config();
-const CURRENCY_NAME = "Linh Thạch";
+const CURRENCY_NAME = "Ngân Lượng";
 
 
 const STAT_LABELS = {

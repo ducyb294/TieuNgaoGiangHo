@@ -1,6 +1,6 @@
 const path = require("path");
 const sharp = require("sharp");
-const { STAT_LABELS } = require("../constants");
+const { STAT_LABELS, CURRENCY_NAME } = require("../constants");
 const { formatNumber } = require("../utils/format");
 const { applyLevelBonus } = require("../utils/stats");
 
@@ -169,7 +169,7 @@ async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl, 
   });
   composites.push({
     input: createTextSvg(
-      `EXP: ${formatNumber(safeExp)} | Linh Thạch: ${formatNumber(currency)}`,
+      `EXP: ${formatNumber(safeExp)} | ${CURRENCY_NAME}: ${formatNumber(currency)}`,
       LAYOUT.exp.width,
       LAYOUT.exp.height,
       { fontSize: 38, color: "#cbb185", fontWeight: 600 }

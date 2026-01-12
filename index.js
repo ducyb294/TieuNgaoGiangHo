@@ -50,19 +50,7 @@ async function withDatabase(callback) {
     }
 }
 
-async function runPassiveExpTick() {
-    try {
-        await withDatabase((db, persist) => {
-            applyPassiveExpTickAll(db, persist);
-        });
-    } catch (error) {
-        console.error("Passive exp tick failed:", error);
-    }
-}
-
 (async () => {
-    // Catch up exp for downtime before the bot starts handling events.
-    await runPassiveExpTick();
 
     const client = new Client({
         intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
@@ -131,19 +119,19 @@ async function runPassiveExpTick() {
                         await handleChanLe(interaction, db, persist, true);
                     }
 
-                    if (interaction.commandName === "bicanh") {
+                    if (interaction.commandName === "hamnguc") {
                         await bicanhService.handleBicanh(interaction, db, persist);
                     }
 
-                    if (interaction.commandName === "sotaithuve") {
+                    if (interaction.commandName === "khieuchienhamnguc") {
                         await bicanhService.handleSoTaiThuVe(interaction, db, persist);
                     }
 
-                    if (interaction.commandName === "farmbicanh") {
+                    if (interaction.commandName === "farmhamnguc") {
                         await bicanhService.handleFarmBicanh(interaction, db, persist);
                     }
 
-                    if (interaction.commandName === "nhanthuongbicanh") {
+                    if (interaction.commandName === "nhanthuonghamnguc") {
                         await bicanhService.handleClaimFarm(interaction, db, persist);
                     }
 
@@ -173,8 +161,6 @@ async function runPassiveExpTick() {
             }
         }
     });
-
-    setInterval(runPassiveExpTick, 60 * 1000);
 
     await client.login(process.env.DISCORD_TOKEN);
 })().catch((error) => {

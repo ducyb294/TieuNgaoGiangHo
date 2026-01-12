@@ -54,17 +54,17 @@ const commands = [
         )
     ),
   new SlashCommandBuilder()
-    .setName("bicanh")
-    .setDescription("Xem chỉ số thủ vệ bí cảnh"),
+    .setName("hamnguc")
+    .setDescription("Xem chỉ số thủ vệ hầm ngục"),
   new SlashCommandBuilder()
-    .setName("sotaithuve")
-    .setDescription("Tỉ thí thủ vệ bí cảnh để tăng level"),
+    .setName("khieuchienhamnguc")
+    .setDescription("Khiêu chiến thủ vệ trấn giữ hầm ngục để tăng level"),
   new SlashCommandBuilder()
-    .setName("farmbicanh")
+    .setName("farmhamnguc")
     .setDescription("Bắt đầu farm bí cảnh (chỉ cần gọi 1 lần duy nhất)"),
   new SlashCommandBuilder()
-    .setName("nhanthuongbicanh")
-    .setDescription("Nhận thưởng farm bí cảnh và reset thời gian tích lũy"),
+    .setName("nhanthuonghamnguc")
+    .setDescription("Nhận thưởng farm hầm ngục và reset thời gian tích lũy"),
   new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Mua chỉ số trong bí cảnh"),
