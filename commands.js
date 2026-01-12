@@ -92,6 +92,9 @@ const commands = [
         .setRequired(true)
         .setMinValue(1)
     ),
+  new SlashCommandBuilder()
+    .setName("backup")
+    .setDescription("Backup file DB (chỉ admin)"),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

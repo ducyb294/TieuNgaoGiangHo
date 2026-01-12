@@ -34,6 +34,8 @@ const CHANLE_CHANNEL_ID = process.env.CHANLE_CHANNEL_ID;
 const BICANH_CHANNEL_ID = process.env.BICANH_CHANNEL_ID;
 const FARM_INTERVAL_MS = 60 * 1000;
 const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
+const ADMIN_CHANNEL_ID = process.env.ADMIN_CHANNEL_ID;
+const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 
 let clientRef = null;
 let bicanhService = null;
@@ -147,6 +149,10 @@ async function runPassiveExpTick() {
 
                     if (interaction.commandName === "muasll") {
                         await shopService.handleBulkPurchase(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "backup") {
+                        await handleBackup(interaction, db, persist);
                     }
                 } else if (interaction.isButton()) {
                     const handled = await shopService.handleButton(interaction, db, persist);
@@ -591,6 +597,26 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
             }
         ],
         files: [{attachment: chartBuffer, name: "chan-le-history.png"}]
+    });
+}
+
+async function handleBackup(interaction, db, persist) {
+    if (ADMIN_CHANNEL_ID && interaction.channelId !== ADMIN_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.backupChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    if (ADMIN_ROLE_ID && !member.roles.cache.has(ADMIN_ROLE_ID)) {
+        await interaction.reply({content: "Bạn không có quyền dùng lệnh này.", ephemeral: true});
+        return;
+    }
+
+    const dbPath = process.env.DB_PATH || "./data.db";
+    await interaction.reply({
+        content: "Đang gửi file backup...",
+        files: [{attachment: dbPath, name: "data-backup.db"}],
+        ephemeral: false,
     });
 }
 

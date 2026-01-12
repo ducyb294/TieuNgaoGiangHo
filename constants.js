@@ -21,6 +21,7 @@ const TEXT = {
   chanLeChannelOnly: `Dùng trong ${process.env.CHANLE_CHANNEL_ID}`,
   bicanhChannelOnly: `Dùng trong ${process.env.BICANH_CHANNEL_ID}`,
   shopChannelOnly: `Dùng trong ${process.env.SHOP_CHANNEL_ID}`,
+  backupChannelOnly: `Dùng trong ${process.env.BACKUP_CHANNEL_ID}`,
   renameSuccess: "Đã cập nhật tên.",
   renameInvalid:
     "Tên không hợp lệ.",
