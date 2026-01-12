@@ -10,6 +10,7 @@ const { buildInfoCard } = require("./services/infoCard");
 const { buildChanLeChartImage } = require("./services/chanLeChart");
 const { simulateCombat } = require("./services/combat");
 const createBicanhService = require("./services/bicanh");
+const createShopService = require("./services/shop");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -32,9 +33,11 @@ const MINING_CHANNEL_ID = process.env.MINING_CHANNEL_ID;
 const CHANLE_CHANNEL_ID = process.env.CHANLE_CHANNEL_ID;
 const BICANH_CHANNEL_ID = process.env.BICANH_CHANNEL_ID;
 const FARM_INTERVAL_MS = 60 * 1000;
+const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
 
 let clientRef = null;
 let bicanhService = null;
+let shopService = null;
 
 async function withDatabase(callback) {
     const {db, persist, close} = await getDatabase(process.env.DB_PATH);
@@ -68,16 +71,28 @@ async function runPassiveExpTick() {
         withDatabase,
         getUser,
         createUser,
-    applyPassiveExpForUser,
-    applyLevelBonus,
-    getBaseNameFromMember,
-    formatNumber,
+        applyPassiveExpForUser,
+        applyLevelBonus,
+        getBaseNameFromMember,
+        formatNumber,
         CURRENCY_NAME,
         TEXT,
         BICANH_CHANNEL_ID,
         FARM_INTERVAL_MS,
         simulateCombat,
         clientRefGetter: () => clientRef,
+    });
+
+    shopService = createShopService({
+        withDatabase,
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+        TEXT,
+        SHOP_CHANNEL_ID,
     });
 
     client.once(Events.ClientReady, () => {
@@ -87,44 +102,55 @@ async function runPassiveExpTick() {
     });
 
     client.on(Events.InteractionCreate, async (interaction) => {
-        if (!interaction.isChatInputCommand()) return;
-
         try {
             await withDatabase(async (db, persist) => {
-                if (interaction.commandName === "doiten") {
-                    await handleRename(interaction, db, persist);
-                }
+                if (interaction.isChatInputCommand()) {
+                    if (interaction.commandName === "doiten") {
+                        await handleRename(interaction, db, persist);
+                    }
 
-                if (interaction.commandName === "dotpha") {
-                    await handleBreakthrough(interaction, db, persist);
-                }
+                    if (interaction.commandName === "dotpha") {
+                        await handleBreakthrough(interaction, db, persist);
+                    }
 
-                if (interaction.commandName === "info") {
-                    await handleInfo(interaction, db, persist);
-                }
+                    if (interaction.commandName === "info") {
+                        await handleInfo(interaction, db, persist);
+                    }
 
-                if (interaction.commandName === "daomo") {
-                    await handleMining(interaction, db, persist);
-                }
+                    if (interaction.commandName === "daomo") {
+                        await handleMining(interaction, db, persist);
+                    }
 
-                if (interaction.commandName === "chanle") {
-                    await handleChanLe(interaction, db, persist, false);
-                }
+                    if (interaction.commandName === "chanle") {
+                        await handleChanLe(interaction, db, persist, false);
+                    }
 
-                if (interaction.commandName === "allinchanle") {
-                    await handleChanLe(interaction, db, persist, true);
-                }
+                    if (interaction.commandName === "allinchanle") {
+                        await handleChanLe(interaction, db, persist, true);
+                    }
 
-                if (interaction.commandName === "bicanh") {
-                    await bicanhService.handleBicanh(interaction, db, persist);
-                }
+                    if (interaction.commandName === "bicanh") {
+                        await bicanhService.handleBicanh(interaction, db, persist);
+                    }
 
-                if (interaction.commandName === "sotaithuve") {
-                    await bicanhService.handleSoTaiThuVe(interaction, db, persist);
-                }
+                    if (interaction.commandName === "sotaithuve") {
+                        await bicanhService.handleSoTaiThuVe(interaction, db, persist);
+                    }
 
-                if (interaction.commandName === "farmbicanh") {
-                    await bicanhService.handleFarmBicanh(interaction, db, persist);
+                    if (interaction.commandName === "farmbicanh") {
+                        await bicanhService.handleFarmBicanh(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "shop") {
+                        await shopService.handleShop(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "muasll") {
+                        await shopService.handleBulkPurchase(interaction, db, persist);
+                    }
+                } else if (interaction.isButton()) {
+                    const handled = await shopService.handleButton(interaction, db, persist);
+                    if (handled) return;
                 }
             });
         } catch (error) {

@@ -62,6 +62,36 @@ const commands = [
   new SlashCommandBuilder()
     .setName("farmbicanh")
     .setDescription("Bắt đầu farm bí cảnh (chỉ cần gọi 1 lần duy nhất)"),
+  new SlashCommandBuilder()
+    .setName("shop")
+    .setDescription("Mua chỉ số trong bí cảnh"),
+  new SlashCommandBuilder()
+    .setName("muasll")
+    .setDescription("Mua số lượng lớn chỉ số")
+    .addStringOption((option) =>
+      option
+        .setName("id")
+        .setDescription("Chỉ số muốn mua")
+        .setRequired(true)
+        .addChoices(
+          { name: "ATK", value: "attack" },
+          { name: "DEF", value: "defense" },
+          { name: "HP", value: "health" },
+          { name: "Né tránh", value: "dodge" },
+          { name: "Chính xác", value: "accuracy" },
+          { name: "Tỉ lệ chí mạng", value: "crit_rate" },
+          { name: "Kháng chí mạng", value: "crit_resistance" },
+          { name: "Xuyên giáp", value: "armor_penetration" },
+          { name: "Kháng xuyên giáp", value: "armor_resistance" }
+        )
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("soluong")
+        .setDescription("Số lượng muốn mua")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

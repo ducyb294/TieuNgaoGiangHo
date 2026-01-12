@@ -10,6 +10,7 @@ Discord bot with leveling, nickname formatting, and currency tracking.
 - Lenh `/daomo` tieu the luc de dao mo linh thach trong kenh rieng.
 - Lenh `/chanle` va `/allinchanle` cuoc linh thach chan/le, tra thuong x1.95, gui bieu do lich su 20 lan gan nhat.
 - Lenh `/bicanh` xem thu ve, `/sotaithuve` danh thu ve tang level, `/farmbicanh` tao thread farm moi phut nhan linh thach (auto tiep tuc sau restart).
+- Lenh `/shop` va `/muasll` mua chi so (ATK/DEF/HP random ~1000 ±20% moi lan, chi so % +1% moi lan; gia tang theo cong thuc price).
 - Nickname tu dong cap nhat khi len level.
 - Luu tru SQLite qua `sql.js`, luu file tai `DB_PATH`.
 - Chi so nguoi choi: tan cong, phong thu, mau, ne tranh (%), chinh xac (%), ti le chi mang (%) toi da 100%, khang sat thuong chi mang (%), xuyen giap (%), khang xuyen giap (%).
@@ -31,6 +32,7 @@ RENAME_CHANNEL_ID= # Kenh dung /doiten
 MINING_CHANNEL_ID= # Kenh dung /daomo
 CHANLE_CHANNEL_ID= # Kenh dung /chanle va /allinchanle
 BICANH_CHANNEL_ID= # Kenh dung /bicanh, /sotaithuve, /farmbicanh
+SHOP_CHANNEL_ID= # Kenh dung /shop, /muasll
 ```
 
 ## Cai dat
@@ -54,4 +56,5 @@ npm start
 - The luc: hoi 1/lon/1 gio, toi da 10 (luu `stamina`, thoi gian hoi `last_stamina_timestamp`, logic tai `index.js`).
 - Chan/le: tra thuong x1.95, lich su chung 20 lan gan nhat (luu bang `chanle_history`, chart tai `services/chanLeChart.js`).
 - Bi canh: thu ve tang 25k ATK/DEF/HP va +1% cac chi so khac moi level (level 1 = 0), luu bang `bicanh_state`; combat toi da 50 hiep, log 3 hiep dau/cuoi (service `services/combat.js`); farm moi phut nhan `level x 1000` (±20%) tai thread luu bang `farm_sessions`.
+- Shop: gia `price(base, n)=floor(base*(1+r*n)^k)` (ATK/DEF/HP base=10k, chi so % base=50k, r=0.12, k=2.3); mua ATK/DEF/HP nhan ~1000 ±20%, chi so % +1%/lan; service tai `services/shop.js`.
 - Ten nguoi dung duoc cat toi da 22 ky tu va chi chap nhan chu cai/so/khoang trang.
