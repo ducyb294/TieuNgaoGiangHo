@@ -54,6 +54,9 @@ const commands = [
         )
     ),
   new SlashCommandBuilder()
+    .setName("taisan")
+    .setDescription("Xem nhanh tài sản"),
+  new SlashCommandBuilder()
     .setName("hamnguc")
     .setDescription("Xem chỉ số thủ vệ hầm ngục"),
   new SlashCommandBuilder()

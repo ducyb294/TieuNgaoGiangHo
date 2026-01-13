@@ -119,6 +119,10 @@ async function withDatabase(callback) {
                         await handleChanLe(interaction, db, persist, true);
                     }
 
+                    if (interaction.commandName === "taisan") {
+                        await handleTaiSan(interaction, db, persist);
+                    }
+
                     if (interaction.commandName === "hamnguc") {
                         await bicanhService.handleBicanh(interaction, db, persist);
                     }
@@ -440,6 +444,30 @@ async function handleInfo(interaction, db, persist) {
     });
 }
 
+async function handleTaiSan(interaction, db, persist) {
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    await interaction.reply({
+        ephemeral: true,
+        embeds: [
+            {
+                color: 0xf39c12,
+                title: "Tài sản",
+                description: `**${formatNumber(user.currency)} ${CURRENCY_NAME}**.`,
+                footer: {text: "/taisan"},
+                timestamp: new Date()
+            }
+        ]
+    });
+}
+
 async function handleMining(interaction, db, persist) {
     if (MINING_CHANNEL_ID && interaction.channelId !== MINING_CHANNEL_ID) {
         await interaction.reply({content: TEXT.miningChannelOnly, ephemeral: true});
@@ -567,6 +595,7 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
     const chartBuffer = await buildChanLeChartImage(history);
 
     const net = isWin ? payout - betAmount : -betAmount;
+    const balanceAfter = currentCurrency - betAmount + payout;
     const resultLabel = result === "chan" ? "Chẵn" : "Lẻ";
     const choiceLabel = choice === "chan" ? "Chẵn" : "Lẻ";
     const played = playedBefore + 1;
@@ -581,7 +610,8 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
                 description:
                     (isWin
                         ? `✅ Thắng! Nhận lại **${formatNumber(payout)} ${CURRENCY_NAME}**.`
-                        : `❌ Thua! Mất **${formatNumber(betAmount)} ${CURRENCY_NAME}**.`),
+                        : `❌ Thua! Mất **${formatNumber(betAmount)} ${CURRENCY_NAME}**.`) +
+                    `\nTài sản: **${formatNumber(balanceAfter)} ${CURRENCY_NAME}**.`,
                 footer: {text: `Tỉ lệ thắng: ${winRate}% (${wins}/${played})`},
                 timestamp: new Date()
             }
