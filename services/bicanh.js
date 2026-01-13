@@ -20,17 +20,18 @@ function createBicanhService({
   const LINH_THACH_RATE = 5000; // per level per minute base
   const EXP_RATE = 1000; // exp per level per minute base
 
-  const getBicanhLevel = (db) => {
-    const stmt = db.prepare("SELECT level FROM bicanh_state WHERE id = 1");
+  const getBicanhLevel = (db, userId) => {
+    const stmt = db.prepare("SELECT bicanh_level FROM users WHERE user_id = ?");
+    stmt.bind([userId]);
     const has = stmt.step();
-    const level = has ? Number(stmt.getAsObject().level || 1) : 1;
+    const level = has ? Number(stmt.getAsObject().bicanh_level || 1) : 1;
     stmt.free();
     return Math.max(1, level);
   };
 
-  const setBicanhLevel = (db, persist, level) => {
+  const setBicanhLevel = (db, persist, userId, level) => {
     const next = Math.max(1, Math.floor(level));
-    db.run("UPDATE bicanh_state SET level = ? WHERE id = 1", [next]);
+    db.run("UPDATE users SET bicanh_level = ? WHERE user_id = ?", [next, userId]);
     persist();
     return next;
   };
@@ -103,7 +104,21 @@ function createBicanhService({
       return;
     }
 
-    const level = getBicanhLevel(db);
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    let user = getUser(db, member.id);
+    if (!user) {
+      user = createUser(
+        db,
+        persist,
+        member.id,
+        getBaseNameFromMember ? getBaseNameFromMember(member) : (member.displayName || member.user.username),
+        Date.now()
+      );
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    const level = getBicanhLevel(db, user.user_id);
     const stats = getDefenderStats(level);
     await interaction.reply({
       embeds: [
@@ -149,7 +164,7 @@ function createBicanhService({
 
     user = applyPassiveExpForUser(db, persist, user);
 
-    const guardLevel = getBicanhLevel(db);
+    const guardLevel = getBicanhLevel(db, user.user_id);
     const guardStats = getDefenderStats(guardLevel);
     const effective = applyLevelBonus(
       {
@@ -202,7 +217,7 @@ function createBicanhService({
 
     let newLevel = guardLevel;
     if (playerWin) {
-      newLevel = setBicanhLevel(db, persist, guardLevel + 1);
+      newLevel = setBicanhLevel(db, persist, user.user_id, guardLevel + 1);
     }
 
     const logText = result.rounds.map((l, idx) => `${idx + 1}. ${l}`).join("\n");
@@ -229,7 +244,7 @@ function createBicanhService({
       return;
     }
 
-    const guardLevel = getBicanhLevel(db);
+    const guardLevel = getBicanhLevel(db, user.user_id);
     if (guardLevel <= 1) {
       await interaction.reply({ content: "Cần thắng thủ vệ ít nhất 1 lần (lv > 1) để farm.", ephemeral: true });
       return;
@@ -309,7 +324,7 @@ function createBicanhService({
       );
     }
 
-    const guardLevel = getBicanhLevel(db);
+    const guardLevel = getBicanhLevel(db, user.user_id);
     if (guardLevel <= 1) {
       await interaction.reply({ content: "Cần thắng thủ vệ ít nhất 1 lần (lv > 1) để farm.", ephemeral: true });
       return;
@@ -368,7 +383,8 @@ function createBicanhService({
     if (!client) return;
 
     const updates = await withDatabase((db, persist) => {
-      const guardLevel = getBicanhLevel(db);
+      const user = getUser(db, s.user_id);
+      const guardLevel = user?.bicanh_level ? Number(user.bicanh_level) : 1;
       const sessions = getFarmSessions(db);
       const now = Date.now();
       const results = [];

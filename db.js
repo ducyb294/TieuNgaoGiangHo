@@ -146,6 +146,7 @@ function initializeSchema(db) {
   addColumnIfMissing("last_stamina_timestamp", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing("chanle_played", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing("chanle_won", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing("bicanh_level", "INTEGER NOT NULL DEFAULT 1");
 }
 
 module.exports = { getDatabase };

@@ -215,6 +215,7 @@ function getUser(db, userId) {
                 level,
                 exp,
                 currency,
+                bicanh_level,
                 last_exp_timestamp,
                 attack,
                 defense,
@@ -242,11 +243,11 @@ function getUser(db, userId) {
 function createUser(db, persist, userId, baseName, lastExpTimestamp) {
     const nameToSave = truncateBaseName(baseName);
     db.run(
-        `INSERT INTO users (user_id, base_name, level, exp, currency, last_exp_timestamp,
+        `INSERT INTO users (user_id, base_name, level, exp, currency, bicanh_level, last_exp_timestamp,
                             attack, defense, health, dodge, accuracy, crit_rate, crit_resistance,
                             armor_penetration, armor_resistance, stamina, last_stamina_timestamp,
                             chanle_played, chanle_won)
-         VALUES (?, ?, 1, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, 0, 0)`,
+         VALUES (?, ?, 1, 0, 0, 1, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, 0, 0)`,
         [userId, nameToSave, lastExpTimestamp, MAX_STAMINA, lastExpTimestamp]
     );
     persist();
