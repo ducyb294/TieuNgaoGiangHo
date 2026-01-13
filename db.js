@@ -130,6 +130,14 @@ function initializeSchema(db) {
   `);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS bicanh_challenges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      day_key TEXT NOT NULL
+    );
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS casino_state (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       owner_id TEXT,

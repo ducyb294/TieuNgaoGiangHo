@@ -14,6 +14,7 @@ function createBicanhService({
   FARM_INTERVAL_MS,
   simulateCombat,
   clientRefGetter,
+  BICANH_DAILY_CHALLENGES,
 }) {
   let farmTimer = null;
   const MAX_FARM_CATCHUP_TICKS = 360; // 6 hours
@@ -65,6 +66,33 @@ function createBicanhService({
     }
     stmt.free();
     return rows;
+  };
+
+  const getChallengeCount = (db, userId, dayKey) => {
+    const stmt = db.prepare(
+      "SELECT COUNT(*) as cnt FROM bicanh_challenges WHERE user_id = ? AND day_key = ?"
+    );
+    stmt.bind([userId, dayKey]);
+    const has = stmt.step();
+    const cnt = has ? Number(stmt.getAsObject().cnt || 0) : 0;
+    stmt.free();
+    return cnt;
+  };
+
+  const addChallengeEntry = (db, persist, userId, dayKey) => {
+    db.run(
+      `INSERT INTO bicanh_challenges (user_id, day_key)
+       VALUES (?, ?)`
+    , [userId, dayKey]);
+    persist();
+  };
+
+  const todayKey = () => {
+    const now = new Date();
+    // Convert to GMT+7
+    const offsetMs = 7 * 60 * 60 * 1000;
+    const local = new Date(now.getTime() + offsetMs);
+    return `${local.getUTCFullYear()}-${String(local.getUTCMonth() + 1).padStart(2, "0")}-${String(local.getUTCDate()).padStart(2, "0")}`;
   };
 
   const getFarmSession = (db, userId) => {
@@ -164,6 +192,14 @@ function createBicanhService({
 
     user = applyPassiveExpForUser(db, persist, user);
 
+    const dayKey = todayKey();
+    const used = getChallengeCount(db, user.user_id, dayKey);
+    const haveTurn = BICANH_DAILY_CHALLENGES - used;
+    if (used >= BICANH_DAILY_CHALLENGES) {
+      await interaction.reply({ content: `${TEXT.bicanhChallengeLimit} ${TEXT.bicanhChallengeReset}`, ephemeral: true });
+      return;
+    }
+
     const guardLevel = getBicanhLevel(db, user.user_id);
     const guardStats = getDefenderStats(guardLevel);
     const effective = applyLevelBonus(
@@ -220,18 +256,20 @@ function createBicanhService({
       newLevel = setBicanhLevel(db, persist, user.user_id, guardLevel + 1);
     }
 
+    addChallengeEntry(db, persist, user.user_id, dayKey);
+
     const logText = result.rounds.map((l, idx) => `${idx + 1}. ${l}`).join("\n");
 
     await interaction.reply({
       embeds: [
         {
           color: playerWin ? 0x2ecc71 : 0xe74c3c,
-          title: `⚔️ So tài thủ vệ (Lv ${guardLevel})`,
+          title: `⚔️ Khiêu chiến hầm ngục tầng ${guardLevel}`,
           description:
             `${playerWin ? "✅ Bạn đã thắng!" : "❌ Bạn thất bại."}\n` +
-            (playerWin ? `Thủ vệ lên level **${newLevel}**.` : "") +
+            (playerWin ? `Hầm ngục lên level **${newLevel}**.` : "") +
             `\n\nLog (${result.totalRounds} hiệp):\n${logText}`,
-          footer: { text: "/khieuchienhamnguc • /hamnguc" },
+          footer: { text: `Lượt còn lại: ${haveTurn}/${BICANH_DAILY_CHALLENGES}` },
           timestamp: new Date(),
         },
       ],

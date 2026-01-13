@@ -15,16 +15,16 @@ const STAT_LABELS = {
 };
 
 const TEXT = {
-  renameChannelOnly: `Dùng trong ${process.env.RENAME_CHANNEL_ID}`,
-  infoChannelOnly: `Dùng trong ${process.env.INFO_CHANNEL_ID}`,
-  miningChannelOnly: `Dùng trong ${process.env.MINING_CHANNEL_ID}`,
-  chanLeChannelOnly: `Dùng trong ${process.env.CHANLE_CHANNEL_ID}`,
-  bauCuaChannelOnly: `Dùng trong ${process.env.BAUCUA_CHANNEL_ID}`,
-  leaderboardChannelOnly: `Dùng trong ${process.env.LEADERBOARD_CHANNEL_ID}`,
-  casinoChannelOnly: `Dùng trong ${process.env.CASINO_CHANNEL_ID}`,
-  bicanhChannelOnly: `Dùng trong ${process.env.BICANH_CHANNEL_ID}`,
-  shopChannelOnly: `Dùng trong ${process.env.SHOP_CHANNEL_ID}`,
-  backupChannelOnly: `Dùng trong ${process.env.BACKUP_CHANNEL_ID}`,
+  renameChannelOnly: `Dùng trong <@${process.env.RENAME_CHANNEL_ID}>`,
+  infoChannelOnly: `Dùng trong <@${process.env.INFO_CHANNEL_ID}>`,
+  miningChannelOnly: `Dùng trong <@${process.env.MINING_CHANNEL_ID}>`,
+  chanLeChannelOnly: `Dùng trong <@${process.env.CHANLE_CHANNEL_ID}>`,
+  bauCuaChannelOnly: `Dùng trong <@${process.env.BAUCUA_CHANNEL_ID}>`,
+  leaderboardChannelOnly: `Dùng trong <@${process.env.LEADERBOARD_CHANNEL_ID}>`,
+  casinoChannelOnly: `Dùng trong <@${process.env.CASINO_CHANNEL_ID}>`,
+  bicanhChannelOnly: `Dùng trong <@${process.env.BICANH_CHANNEL_ID}>`,
+  shopChannelOnly: `Dùng trong <@${process.env.SHOP_CHANNEL_ID}>`,
+  backupChannelOnly: `Dùng trong <@${process.env.BACKUP_CHANNEL_ID}>`,
   renameSuccess: "Đã cập nhật tên.",
   renameInvalid: "Tên không hợp lệ.",
   notEnoughExp: "Chưa đủ exp.",
@@ -50,6 +50,8 @@ const TEXT = {
   casinoBankrupt: "Chủ Sòng Bài đã phá sản, vai được trả lại.",
   casinoNotOwner: "Bạn không phải Chủ Sòng Bài.",
   casinoOwnerRequired: "Chỉ Chủ Sòng Bài mới dùng lệnh này.",
+  bicanhChallengeLimit: "Bạn đã hết lượt khiêu chiến hôm nay.",
+  bicanhChallengeReset: "Lượt sẽ được đặt lại lúc 00:00 (GMT+7).",
 };
 
 const MAX_STAMINA = 10;
@@ -59,6 +61,7 @@ const BAUCUA_COUNTDOWN_MS = 2 * 60 * 1000;
 const BAUCUA_LOCK_WINDOW_MS = 15 * 1000;
 const CASINO_OWNER_DURATION_MS = 4 * 60 * 60 * 1000;
 const CASINO_COMMISSION_RATE = 0.1;
+const BICANH_DAILY_CHALLENGES = 10;
 
 const BAUCUA_FACES = [
   { id: "cop", label: "Cọp", emoji: "🐯" },
@@ -104,6 +107,7 @@ module.exports = {
   CHANLE_PAYOUT_RATE,
   CASINO_OWNER_DURATION_MS,
   CASINO_COMMISSION_RATE,
+  BICANH_DAILY_CHALLENGES,
   BAUCUA_COUNTDOWN_MS,
   BAUCUA_LOCK_WINDOW_MS,
   BAUCUA_FACES,
