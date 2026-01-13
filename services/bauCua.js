@@ -167,16 +167,20 @@ function createBauCuaService({
 
   const getTotalsByFace = (db, roundId) => {
     const stmt = db.prepare(
-      "SELECT face, SUM(amount) as total, COUNT(DISTINCT user_id) as bettors FROM baucua_bets WHERE round_id = ? GROUP BY face"
+      "SELECT face, user_id, SUM(amount) as total FROM baucua_bets WHERE round_id = ? GROUP BY face, user_id"
     );
     stmt.bind([roundId]);
     const totals = {};
     while (stmt.step()) {
       const row = stmt.getAsObject();
-      totals[row.face] = {
-        total: Number(row.total || 0),
-        bettors: Number(row.bettors || 0),
-      };
+      const face = row.face;
+      if (!totals[face]) {
+        totals[face] = { total: 0, users: [] };
+      }
+      totals[face].total += Number(row.total || 0);
+      if (!totals[face].users.includes(row.user_id)) {
+        totals[face].users.push(row.user_id);
+      }
     }
     stmt.free();
     return totals;
@@ -232,10 +236,11 @@ function createBauCuaService({
       round.lockAt !== null &&
       now >= round.lockAt;
     const lines = BAUCUA_FACES.map((face) => {
-      const info = totals[face.id] || { total: 0, bettors: 0 };
+      const info = totals[face.id] || { total: 0, users: [] };
+      const mentions = info.users.map((id) => `<@${id}>`).join(", ");
       return `${face.emoji} ${face.label}: **${formatNumber(
         info.total
-      )} ${CURRENCY_NAME}** (${info.bettors} người)`;
+      )} ${CURRENCY_NAME}**${mentions ? ` • ${mentions}` : ""}`;
     }).join("\n");
 
     const baseDescription =
@@ -348,7 +353,7 @@ function createBauCuaService({
     const winnerEntries = Object.entries(winnings).map(([userId, amount]) => {
       const user = getUser(db, userId);
       const name = user?.base_name || userId;
-      return { name, amount };
+      return { userId, name, amount };
     });
 
     winnerEntries.sort((a, b) => b.amount - a.amount);
@@ -358,7 +363,9 @@ function createBauCuaService({
         : winnerEntries
             .map(
               (w) =>
-                `• ${w.name}: **${formatNumber(w.amount)} ${CURRENCY_NAME}**`
+                `• <@${w.userId}> (${w.name}): **${formatNumber(
+                  w.amount
+                )} ${CURRENCY_NAME}**`
             )
             .join("\n");
 
