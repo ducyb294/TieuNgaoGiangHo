@@ -383,24 +383,20 @@ function createBicanhService({
     if (!client) return;
 
     const updates = await withDatabase((db, persist) => {
-      const user = getUser(db, s.user_id);
-      const guardLevel = user?.bicanh_level ? Number(user.bicanh_level) : 1;
       const sessions = getFarmSessions(db);
       const now = Date.now();
       const results = [];
 
-      if (guardLevel <= 1) {
-        sessions.forEach((s) => {
-          db.run("UPDATE farm_sessions SET last_tick = ? WHERE user_id = ?", [now, s.user_id]);
-        });
-        persist();
-        return results;
-      }
-
       db.run("BEGIN");
       sessions.forEach((s) => {
+        const guardLevel = getBicanhLevel(db, s.user_id);
         const ticks = Math.floor((now - s.last_tick) / FARM_INTERVAL_MS);
         if (ticks <= 0) return;
+
+        if (guardLevel <= 1) {
+          db.run("UPDATE farm_sessions SET last_tick = ? WHERE user_id = ?", [now, s.user_id]);
+          return;
+        }
 
         const cappedTicks = Math.min(ticks, MAX_FARM_CATCHUP_TICKS);
         let delta = 0;
