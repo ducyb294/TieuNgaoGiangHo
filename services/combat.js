@@ -31,7 +31,13 @@ function simulateCombat(attacker, defender, options = {}) {
   const fightRound = (atk, def) => {
     if (state[atk.id].hp <= 0 || state[def.id].hp <= 0) return;
 
-    const hitChance = clamp((atk.accuracy || 0) - (def.dodge || 0), 0, 100);
+    const dodge = def.dodge || 0;
+    const accuracy = atk.accuracy || 0;
+
+    const effectiveDodge = Math.max(dodge - accuracy, 0);
+
+    const hitChance = 100 - effectiveDodge;
+
     const roll = Math.random() * 100;
     if (roll > hitChance) {
       rounds.push(`${atk.name} tấn công nhưng bị né!`);
