@@ -134,7 +134,7 @@ function createBauCuaService({
         }
         await refreshStatusMessage(currentRound, db);
       }).catch((error) => console.error("Bầu cua ticker error:", error));
-    }, 15000);
+    }, 1000);
   };
 
   const rollResults = () => {
