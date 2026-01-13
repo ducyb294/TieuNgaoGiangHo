@@ -388,8 +388,8 @@ async function handleBreakthrough(interaction, db, persist) {
                 description:
                     `**${TEXT.levelUpSuccess}**\n\n` +
                     `🔺 **Level:** ${level}\n` +
-                    `✨ **Exp còn lại:** ${exp}\n` +
-                    `💰 **${CURRENCY_NAME}:** ${user.currency}`,
+                    `✨ **Exp còn lại:** ${formatNumber(exp)}\n` +
+                    `💰 **${CURRENCY_NAME}:** ${formatNumber(user.currency)}`,
                 footer: {text: "/dotpha"},
                 timestamp: new Date()
             }
