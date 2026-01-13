@@ -29,7 +29,8 @@ const {
     BAUCUA_LOCK_WINDOW_MS,
     BAUCUA_FACES,
     CASINO_OWNER_DURATION_MS,
-    CASINO_COMMISSION_RATE
+    CASINO_COMMISSION_RATE,
+    BICANH_DAILY_CHALLENGES
 } = require("./constants");
 
 const EXP_PER_MINUTE = 1;
@@ -84,6 +85,7 @@ async function withDatabase(callback) {
         FARM_INTERVAL_MS,
         simulateCombat,
         clientRefGetter: () => clientRef,
+        BICANH_DAILY_CHALLENGES
     });
 
     shopService = createShopService({
