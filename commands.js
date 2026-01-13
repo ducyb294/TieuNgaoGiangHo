@@ -54,6 +54,30 @@ const commands = [
         )
     ),
   new SlashCommandBuilder()
+    .setName("baucua")
+    .setDescription("Đặt cược Bầu Cua")
+    .addStringOption((option) =>
+      option
+        .setName("linhvat")
+        .setDescription("Chọn linh vật muốn cược")
+        .setRequired(true)
+        .addChoices(
+          { name: "🐯 Cọp", value: "cop" },
+          { name: "🦀 Cua", value: "cua" },
+          { name: "🐟 Cá", value: "ca" },
+          { name: "🦐 Tôm", value: "tom" },
+          { name: "🐔 Gà", value: "ga" },
+          { name: "🎃 Bầu", value: "bau" }
+        )
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("cuoc")
+        .setDescription("Số Ngân Lượng cược cho linh vật này")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
     .setName("taisan")
     .setDescription("Xem nhanh tài sản"),
   new SlashCommandBuilder()

@@ -74,6 +74,30 @@ function initializeSchema(db) {
   `);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS baucua_rounds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      status TEXT NOT NULL,
+      started_at INTEGER,
+      lock_at INTEGER,
+      close_at INTEGER,
+      result1 TEXT,
+      result2 TEXT,
+      result3 TEXT,
+      created_at INTEGER NOT NULL
+    );
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS baucua_bets (
+      round_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      face TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      PRIMARY KEY (round_id, user_id, face)
+    );
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS bicanh_state (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       level INTEGER NOT NULL DEFAULT 1

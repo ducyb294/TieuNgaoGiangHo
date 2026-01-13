@@ -11,6 +11,7 @@ const { buildChanLeChartImage } = require("./services/chanLeChart");
 const { simulateCombat } = require("./services/combat");
 const createBicanhService = require("./services/bicanh");
 const createShopService = require("./services/shop");
+const createBauCuaService = require("./services/bauCua");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -22,7 +23,10 @@ const {
     MAX_STAMINA,
     STAMINA_INTERVAL_MS,
     CHANLE_PAYOUT_RATE,
-    rollLinhThachReward
+    rollLinhThachReward,
+    BAUCUA_COUNTDOWN_MS,
+    BAUCUA_LOCK_WINDOW_MS,
+    BAUCUA_FACES
 } = require("./constants");
 
 const EXP_PER_MINUTE = 1;
@@ -32,6 +36,7 @@ const RENAME_CHANNEL_ID = process.env.RENAME_CHANNEL_ID;
 const MINING_CHANNEL_ID = process.env.MINING_CHANNEL_ID;
 const CHANLE_CHANNEL_ID = process.env.CHANLE_CHANNEL_ID;
 const BICANH_CHANNEL_ID = process.env.BICANH_CHANNEL_ID;
+const BAUCUA_CHANNEL_ID = process.env.BAUCUA_CHANNEL_ID;
 const FARM_INTERVAL_MS = 60 * 1000;
 const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
 const ADMIN_CHANNEL_ID = process.env.ADMIN_CHANNEL_ID;
@@ -40,6 +45,7 @@ const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 let clientRef = null;
 let bicanhService = null;
 let shopService = null;
+let bauCuaService = null;
 
 async function withDatabase(callback) {
     const {db, persist, close} = await getDatabase(process.env.DB_PATH);
@@ -85,10 +91,27 @@ async function withDatabase(callback) {
         SHOP_CHANNEL_ID,
     });
 
+    bauCuaService = createBauCuaService({
+        withDatabase,
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+        TEXT,
+        BAUCUA_FACES,
+        BAUCUA_CHANNEL_ID,
+        BAUCUA_COUNTDOWN_MS,
+        BAUCUA_LOCK_WINDOW_MS,
+        clientRefGetter: () => clientRef,
+    });
+
     client.once(Events.ClientReady, () => {
         console.log(`Ready as ${client.user.tag}`);
         clientRef = client;
         bicanhService.startFarmLoop();
+        bauCuaService.init();
     });
 
     client.on(Events.InteractionCreate, async (interaction) => {
@@ -117,6 +140,10 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "allinchanle") {
                         await handleChanLe(interaction, db, persist, true);
+                    }
+
+                    if (interaction.commandName === "baucua") {
+                        await bauCuaService.handleBet(interaction, db, persist);
                     }
 
                     if (interaction.commandName === "taisan") {
