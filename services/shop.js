@@ -167,7 +167,7 @@ function createShopService({
     await interaction.reply({
       embeds: [embed],
       components,
-      ephemeral: false,
+      ephemeral: true,
     });
   }
 
@@ -267,7 +267,15 @@ function createShopService({
     }
 
     const updated = result.updatedUser;
-    await interaction.reply({
+    const counts = getAllCounts(db, user.user_id);
+    const { embed, components } = buildShopMessage(updated, counts);
+
+    await interaction.update({
+      embeds: [embed],
+      components,
+    });
+
+    await interaction.followUp({
       embeds: [
         {
           color: 0xf39c12,
