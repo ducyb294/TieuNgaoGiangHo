@@ -154,7 +154,8 @@ function createCasinoService({
       return;
     }
 
-    updateState(db, persist, {ownerId: user.user_id, startedAt: Date.now()});
+    const autoMax = Math.floor(Number(user.currency || 0) * 0.2);
+    updateState(db, persist, {ownerId: user.user_id, startedAt: Date.now(), maxChanLe: autoMax});
     await ensureMemberHasRole(interaction.guild, user.user_id);
     setExpirationTimer();
 
@@ -193,8 +194,12 @@ function createCasinoService({
     }
 
     const amount = Number(interaction.options.getInteger("nganluong", true));
-    if (amount <= 0) {
-      await interaction.reply({content: "Số phải lớn hơn 0.", ephemeral: true});
+    const owner = getUser(db, state.ownerId);
+    const balance = Number(owner?.currency || 0);
+    const minAllowed = Math.floor(balance * 0.2);
+    const maxAllowed = Math.floor(balance * 0.5);
+    if (amount < minAllowed || amount > maxAllowed) {
+      await interaction.reply({content: `Giới hạn: ${formatNumber(minAllowed)} - ${formatNumber(maxAllowed)} ${CURRENCY_NAME} (20%-50% tài sản).`, ephemeral: true});
       return;
     }
 

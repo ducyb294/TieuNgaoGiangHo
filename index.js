@@ -721,16 +721,20 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
         return;
     }
 
-    const now = Date.now();
-
-    const playedBefore = Number(user.chanle_played || 0);
-    const winsBefore = Number(user.chanle_won || 0);
-
     const casinoState = await casinoService.ensureOwnerStillValid(interaction, db, persist);
+    if (casinoState.ownerId && casinoState.ownerId === user.user_id) {
+        await interaction.reply({content: "Chủ Sòng không được tự chơi.", ephemeral: true});
+        return;
+    }
     if (casinoState.ownerId && casinoState.maxChanLe && betAmount > casinoState.maxChanLe) {
         await interaction.reply({content: `Cược tối đa: ${formatNumber(casinoState.maxChanLe)} ${CURRENCY_NAME}.`, ephemeral: true});
         return;
     }
+
+    const now = Date.now();
+
+    const playedBefore = Number(user.chanle_played || 0);
+    const winsBefore = Number(user.chanle_won || 0);
 
     const result = rollChanLe();
     const isWin = result === choice;

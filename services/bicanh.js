@@ -244,7 +244,7 @@ function createBicanhService({
       return;
     }
 
-    const guardLevel = getBicanhLevel(db, user.user_id);
+    const guardLevel = getBicanhLevel(db, interaction.user.id);
     if (guardLevel <= 1) {
       await interaction.reply({ content: "Cần thắng thủ vệ ít nhất 1 lần (lv > 1) để farm.", ephemeral: true });
       return;
