@@ -6,10 +6,7 @@ const commands = [
     .setName("doiten")
     .setDescription("Đổi tên mới")
     .addStringOption((option) =>
-      option
-        .setName("ten")
-        .setDescription("Tên mới")
-        .setRequired(true)
+      option.setName("ten").setDescription("Tên mới").setRequired(true)
     ),
   new SlashCommandBuilder()
     .setName("dotpha")
@@ -125,6 +122,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName("backup")
     .setDescription("Backup"),
+  new SlashCommandBuilder()
+    .setName("topdaigia")
+    .setDescription("Top 10 đại gia Ngân Lượng"),
+  new SlashCommandBuilder()
+    .setName("topcaothu")
+    .setDescription("Top 10 cao thủ (level, exp)"),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

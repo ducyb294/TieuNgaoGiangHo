@@ -36,6 +36,7 @@ const RENAME_CHANNEL_ID = process.env.RENAME_CHANNEL_ID;
 const MINING_CHANNEL_ID = process.env.MINING_CHANNEL_ID;
 const CHANLE_CHANNEL_ID = process.env.CHANLE_CHANNEL_ID;
 const BICANH_CHANNEL_ID = process.env.BICANH_CHANNEL_ID;
+const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
 const BAUCUA_CHANNEL_ID = process.env.BAUCUA_CHANNEL_ID;
 const FARM_INTERVAL_MS = 60 * 1000;
 const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
@@ -144,6 +145,14 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "baucua") {
                         await bauCuaService.handleBet(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "topdaigia") {
+                        await handleTopDaiGia(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "topcaothu") {
+                        await handleTopCaoThu(interaction, db, persist);
                     }
 
                     if (interaction.commandName === "taisan") {
@@ -489,6 +498,79 @@ async function handleTaiSan(interaction, db, persist) {
                 title: "Tài sản",
                 description: `**${formatNumber(user.currency)} ${CURRENCY_NAME}**.`,
                 footer: {text: "/taisan"},
+                timestamp: new Date()
+            }
+        ]
+    });
+}
+
+async function handleTopDaiGia(interaction, db, persist) {
+    if (LEADERBOARD_CHANNEL_ID && interaction.channelId !== LEADERBOARD_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.leaderboardChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const stmt = db.prepare(
+        "SELECT user_id, base_name, currency FROM users ORDER BY currency DESC LIMIT 10"
+    );
+    const rows = [];
+    while (stmt.step()) {
+        const row = stmt.getAsObject();
+        rows.push({
+            user_id: row.user_id,
+            base_name: row.base_name,
+            currency: Number(row.currency || 0),
+        });
+    }
+    stmt.free();
+
+    const lines = rows.map((row, idx) =>
+        `${idx + 1}. <@${row.user_id}> (${row.base_name}) - **${formatNumber(row.currency)} ${CURRENCY_NAME}**`
+    );
+
+    await interaction.reply({
+        embeds: [
+            {
+                color: 0xf1c40f,
+                title: "Top Đại Gia",
+                description: lines.length ? lines.join("\n") : "Chưa có dữ liệu.",
+                timestamp: new Date()
+            }
+        ]
+    });
+}
+
+async function handleTopCaoThu(interaction, db, persist) {
+    if (LEADERBOARD_CHANNEL_ID && interaction.channelId !== LEADERBOARD_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.leaderboardChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const stmt = db.prepare(
+        "SELECT user_id, base_name, level, exp FROM users ORDER BY level DESC, exp DESC LIMIT 10"
+    );
+    const rows = [];
+    while (stmt.step()) {
+        const row = stmt.getAsObject();
+        rows.push({
+            user_id: row.user_id,
+            base_name: row.base_name,
+            level: Number(row.level || 0),
+            exp: Number(row.exp || 0),
+        });
+    }
+    stmt.free();
+
+    const lines = rows.map((row, idx) =>
+        `${idx + 1}. <@${row.user_id}> (${row.base_name}) - Level ${row.level} | Exp ${formatNumber(row.exp)}`
+    );
+
+    await interaction.reply({
+        embeds: [
+            {
+                color: 0x3498db,
+                title: "Top Cao Thủ",
+                description: lines.length ? lines.join("\n") : "Chưa có dữ liệu.",
                 timestamp: new Date()
             }
         ]

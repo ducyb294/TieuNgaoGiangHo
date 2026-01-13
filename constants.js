@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 const CURRENCY_NAME = "Ngân Lượng";
 
 const STAT_LABELS = {
@@ -7,7 +8,7 @@ const STAT_LABELS = {
   health: "Máu",
   dodge: "Né Tránh",
   accuracy: "Chính Xác",
-  critRate: "Tỉ Lệ Chí Mạng",
+  critRate: "Tỉ lệ Chí Mạng",
   critDamageResistance: "Kháng ST Chí Mạng",
   armorPenetration: "Xuyên Giáp",
   armorResistance: "Kháng Xuyên Giáp",
@@ -19,6 +20,7 @@ const TEXT = {
   miningChannelOnly: `Dùng trong ${process.env.MINING_CHANNEL_ID}`,
   chanLeChannelOnly: `Dùng trong ${process.env.CHANLE_CHANNEL_ID}`,
   bauCuaChannelOnly: `Dùng trong ${process.env.BAUCUA_CHANNEL_ID}`,
+  leaderboardChannelOnly: `Dùng trong ${process.env.LEADERBOARD_CHANNEL_ID}`,
   bicanhChannelOnly: `Dùng trong ${process.env.BICANH_CHANNEL_ID}`,
   shopChannelOnly: `Dùng trong ${process.env.SHOP_CHANNEL_ID}`,
   backupChannelOnly: `Dùng trong ${process.env.BACKUP_CHANNEL_ID}`,
@@ -45,12 +47,12 @@ const BAUCUA_COUNTDOWN_MS = 2 * 60 * 1000;
 const BAUCUA_LOCK_WINDOW_MS = 15 * 1000;
 
 const BAUCUA_FACES = [
-  {id: "cop", label: "Cọp", emoji: "🐯"},
-  {id: "cua", label: "Cua", emoji: "🦀"},
-  {id: "ca", label: "Cá", emoji: "🐟"},
-  {id: "tom", label: "Tôm", emoji: "🦐"},
-  {id: "ga", label: "Gà", emoji: "🐔"},
-  {id: "bau", label: "Bầu", emoji: "🎃"},
+  { id: "cop", label: "Cọp", emoji: "🐯" },
+  { id: "cua", label: "Cua", emoji: "🦀" },
+  { id: "ca", label: "Cá", emoji: "🐟" },
+  { id: "tom", label: "Tôm", emoji: "🦐" },
+  { id: "ga", label: "Gà", emoji: "🐔" },
+  { id: "bau", label: "Bầu", emoji: "🎃" },
 ];
 
 function rollLinhThachReward() {
