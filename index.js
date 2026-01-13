@@ -502,7 +502,7 @@ async function handleMining(interaction, db, persist) {
         embeds: [
             {
                 color: 0x8b5cf6,
-                title: "⛏️ Đào mỏ linh thạch",
+                title: "⛏️ Đào mỏ",
                 description:
                     `Đã đào ${available} lượt và nhận **${formatNumber(total)} ${CURRENCY_NAME}**.\n` +
                     (lines ? `\n${lines}` : ""),

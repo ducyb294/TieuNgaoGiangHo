@@ -216,7 +216,7 @@ function createBicanhService({
             `${playerWin ? "✅ Bạn đã thắng!" : "❌ Bạn thất bại."}\n` +
             (playerWin ? `Thủ vệ lên level **${newLevel}**.` : "") +
             `\n\nLog (${result.totalRounds} hiệp):\n${logText}`,
-          footer: { text: "/sotaithuve • /bicanh" },
+          footer: { text: "/khieuchienhamnguc • /hamnguc" },
           timestamp: new Date(),
         },
       ],
