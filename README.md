@@ -15,7 +15,11 @@ Discord bot with leveling, nickname formatting, and currency tracking.
 - Nickname tu dong cap nhat khi len level.
 - Luu tru SQLite qua `sql.js`, luu file tai `DB_PATH`.
 - Chi so nguoi choi: tan cong, phong thu, mau, ne tranh (%), chinh xac (%), ti le chi mang (%) toi da 100%, khang sat thuong chi mang (%), xuyen giap (%), khang xuyen giap (%).
-- Tien te: Linh thach.
+- Tien te: Linh thach / Ngân Lượng.
+- Chủ Sòng Bài: `/npc` nhận role (cần đủ min tài sản, auto set cược tối đa chẵn/lẻ = 20% tài sản, giới hạn 20%-50%), `/huynpc` hủy, `/setmaxchanle` chỉnh cược tối đa (chủ sòng), `/settaisanchusongbai` (admin) đặt tài sản tối thiểu; hoa hồng 10% trên mọi ván chẵn/lẻ, chủ sòng trả thưởng khi người chơi thắng, ăn cược khi họ thua; hết 4h hoặc phá sản sẽ bị gỡ role và thông báo kênh sòng.
+- Bầu Cua: `/baucua` đặt cược, đếm ngược 2 phút, khóa 15s cuối, thống kê xuất hiện từng linh vật, tự xoay ván.
+- Top: `/topdaigia` top 10 Ngân Lượng, `/topcaothu` top 10 level (tie exp).
+- Bí cảnh: mỗi người có level riêng; `/sotaithuve` giới hạn 10 lượt/ngày, reset 00:00 GMT+7.
 
 ## Yeu cau
 - Node.js 18+.
@@ -34,6 +38,12 @@ MINING_CHANNEL_ID= # Kenh dung /daomo
 CHANLE_CHANNEL_ID= # Kenh dung /chanle va /allinchanle
 BICANH_CHANNEL_ID= # Kenh dung /bicanh, /sotaithuve, /farmbicanh
 SHOP_CHANNEL_ID= # Kenh dung /shop, /muasll
+LEADERBOARD_CHANNEL_ID= # Kenh dung /topdaigia, /topcaothu
+BAUCUA_CHANNEL_ID= # Kenh dung /baucua
+CASINO_CHANNEL_ID= # Kenh dung lệnh sòng bài
+CASINO_ROLE_ID= # Role Chủ Sòng Bài
+ADMIN_CHANNEL_ID= # Kenh chi admin (backup, set tài sản Chủ Sòng)
+ADMIN_ROLE_ID= # Role admin
 ```
 
 ## Cai dat
