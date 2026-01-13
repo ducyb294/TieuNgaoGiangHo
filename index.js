@@ -11,6 +11,7 @@ const { buildChanLeChartImage } = require("./services/chanLeChart");
 const { simulateCombat } = require("./services/combat");
 const createBicanhService = require("./services/bicanh");
 const createShopService = require("./services/shop");
+const createCasinoService = require("./services/casino");
 const createBauCuaService = require("./services/bauCua");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
@@ -26,7 +27,9 @@ const {
     rollLinhThachReward,
     BAUCUA_COUNTDOWN_MS,
     BAUCUA_LOCK_WINDOW_MS,
-    BAUCUA_FACES
+    BAUCUA_FACES,
+    CASINO_OWNER_DURATION_MS,
+    CASINO_COMMISSION_RATE
 } = require("./constants");
 
 const EXP_PER_MINUTE = 1;
@@ -38,6 +41,8 @@ const CHANLE_CHANNEL_ID = process.env.CHANLE_CHANNEL_ID;
 const BICANH_CHANNEL_ID = process.env.BICANH_CHANNEL_ID;
 const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
 const BAUCUA_CHANNEL_ID = process.env.BAUCUA_CHANNEL_ID;
+const CASINO_CHANNEL_ID = process.env.CASINO_CHANNEL_ID;
+const CASINO_ROLE_ID = process.env.CASINO_ROLE_ID;
 const FARM_INTERVAL_MS = 60 * 1000;
 const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
 const ADMIN_CHANNEL_ID = process.env.ADMIN_CHANNEL_ID;
@@ -47,6 +52,7 @@ let clientRef = null;
 let bicanhService = null;
 let shopService = null;
 let bauCuaService = null;
+let casinoService = null;
 
 async function withDatabase(callback) {
     const {db, persist, close} = await getDatabase(process.env.DB_PATH);
@@ -92,6 +98,24 @@ async function withDatabase(callback) {
         SHOP_CHANNEL_ID,
     });
 
+    casinoService = createCasinoService({
+        withDatabase,
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+        TEXT,
+        CASINO_CHANNEL_ID,
+        CASINO_ROLE_ID,
+        ADMIN_ROLE_ID,
+        ADMIN_CHANNEL_ID,
+        CASINO_OWNER_DURATION_MS,
+        CASINO_COMMISSION_RATE,
+        clientRefGetter: () => clientRef,
+    });
+
     bauCuaService = createBauCuaService({
         withDatabase,
         getUser,
@@ -113,6 +137,7 @@ async function withDatabase(callback) {
         clientRef = client;
         bicanhService.startFarmLoop();
         bauCuaService.init();
+        casinoService.init();
     });
 
     client.on(Events.InteractionCreate, async (interaction) => {
@@ -145,6 +170,22 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "baucua") {
                         await bauCuaService.handleBet(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "npc") {
+                        await casinoService.handleNpc(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "huynpc") {
+                        await casinoService.handleHuyNpc(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "setmaxchanle") {
+                        await casinoService.handleSetMaxChanLe(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "settaisanchusongbai") {
+                        await casinoService.handleSetMinBalance(interaction, db, persist);
                     }
 
                     if (interaction.commandName === "topdaigia") {
@@ -685,6 +726,12 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
     const playedBefore = Number(user.chanle_played || 0);
     const winsBefore = Number(user.chanle_won || 0);
 
+    const casinoState = await casinoService.ensureOwnerStillValid(interaction, db, persist);
+    if (casinoState.ownerId && casinoState.maxChanLe && betAmount > casinoState.maxChanLe) {
+        await interaction.reply({content: `Cược tối đa: ${formatNumber(casinoState.maxChanLe)} ${CURRENCY_NAME}.`, ephemeral: true});
+        return;
+    }
+
     const result = rollChanLe();
     const isWin = result === choice;
     const payout = isWin ? Math.floor(betAmount * CHANLE_PAYOUT_RATE) : 0;
@@ -699,6 +746,13 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
         db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [payout, user.user_id]);
     }
     persist();
+
+    const settlement = casinoService.applyChanLeSettlement(db, persist, {
+        playerId: user.user_id,
+        betAmount,
+        payout,
+        isWin,
+    });
 
     saveChanLeResult(db, persist, result, now);
     const history = getChanLeHistory(db);
@@ -721,7 +775,8 @@ async function handleChanLe(interaction, db, persist, allIn = false) {
                     (isWin
                         ? `✅ Thắng! Nhận lại **${formatNumber(payout)} ${CURRENCY_NAME}**.`
                         : `❌ Thua! Mất **${formatNumber(betAmount)} ${CURRENCY_NAME}**.`) +
-                    `\nTài sản: **${formatNumber(balanceAfter)} ${CURRENCY_NAME}**.`,
+                    `\nTài sản: **${formatNumber(balanceAfter)} ${CURRENCY_NAME}**.` +
+                    (settlement && settlement.ownerId ? `\nChủ Sòng: <@${settlement.ownerId}>${settlement.ownerBalance !== undefined ? ` (${formatNumber(settlement.ownerBalance)} ${CURRENCY_NAME})` : ""}` : ""),
                 footer: {text: `Tỉ lệ thắng: ${winRate}% (${wins}/${played})`},
                 timestamp: new Date()
             }

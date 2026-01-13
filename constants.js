@@ -21,6 +21,7 @@ const TEXT = {
   chanLeChannelOnly: `Dùng trong ${process.env.CHANLE_CHANNEL_ID}`,
   bauCuaChannelOnly: `Dùng trong ${process.env.BAUCUA_CHANNEL_ID}`,
   leaderboardChannelOnly: `Dùng trong ${process.env.LEADERBOARD_CHANNEL_ID}`,
+  casinoChannelOnly: `Dùng trong ${process.env.CASINO_CHANNEL_ID}`,
   bicanhChannelOnly: `Dùng trong ${process.env.BICANH_CHANNEL_ID}`,
   shopChannelOnly: `Dùng trong ${process.env.SHOP_CHANNEL_ID}`,
   backupChannelOnly: `Dùng trong ${process.env.BACKUP_CHANNEL_ID}`,
@@ -38,6 +39,17 @@ const TEXT = {
   bauCuaWaiting: "Đang chờ cược đầu tiên.",
   bauCuaResultTitle: "Kết quả Bầu Cua",
   bauCuaNoBets: "Chưa có ai tham gia ván này.",
+  casinoNoOwner: "Hiện chưa có Chủ Sòng Bài.",
+  casinoAlreadyOwner: "Đã có Chủ Sòng Bài khác.",
+  casinoClaimed: "Bạn đã nhận vai Chủ Sòng Bài.",
+  casinoReleased: "Đã hủy vai Chủ Sòng Bài.",
+  casinoBelowMin: "Ngân lượng chưa đủ để nhận vai.",
+  casinoMaxSet: "Đã cập nhật cược tối đa chẵn lẻ.",
+  casinoMinSet: "Đã cập nhật tài sản tối thiểu để nhận vai.",
+  casinoExpired: "Thời gian Chủ Sòng Bài đã hết, vai được trả lại.",
+  casinoBankrupt: "Chủ Sòng Bài đã phá sản, vai được trả lại.",
+  casinoNotOwner: "Bạn không phải Chủ Sòng Bài.",
+  casinoOwnerRequired: "Chỉ Chủ Sòng Bài mới dùng lệnh này.",
 };
 
 const MAX_STAMINA = 10;
@@ -45,6 +57,8 @@ const STAMINA_INTERVAL_MS = 60 * 60 * 1000;
 const CHANLE_PAYOUT_RATE = 1.95;
 const BAUCUA_COUNTDOWN_MS = 2 * 60 * 1000;
 const BAUCUA_LOCK_WINDOW_MS = 15 * 1000;
+const CASINO_OWNER_DURATION_MS = 4 * 60 * 60 * 1000;
+const CASINO_COMMISSION_RATE = 0.1;
 
 const BAUCUA_FACES = [
   { id: "cop", label: "Cọp", emoji: "🐯" },
@@ -88,6 +102,8 @@ module.exports = {
   MAX_STAMINA,
   STAMINA_INTERVAL_MS,
   CHANLE_PAYOUT_RATE,
+  CASINO_OWNER_DURATION_MS,
+  CASINO_COMMISSION_RATE,
   BAUCUA_COUNTDOWN_MS,
   BAUCUA_LOCK_WINDOW_MS,
   BAUCUA_FACES,

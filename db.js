@@ -129,6 +129,22 @@ function initializeSchema(db) {
     );
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS casino_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      owner_id TEXT,
+      min_balance INTEGER NOT NULL DEFAULT 10000000,
+      max_chanle INTEGER,
+      started_at INTEGER
+    );
+  `);
+
+  db.run(`
+    INSERT INTO casino_state (id, min_balance)
+    SELECT 1, 10000000
+    WHERE NOT EXISTS (SELECT 1 FROM casino_state WHERE id = 1);
+  `);
+
   const columns = db.prepare(`PRAGMA table_info(users)`);
   const existing = [];
   while (columns.step()) {

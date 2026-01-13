@@ -78,6 +78,32 @@ const commands = [
     .setName("taisan")
     .setDescription("Xem nhanh tài sản"),
   new SlashCommandBuilder()
+    .setName("npc")
+    .setDescription("Nhận vai Chủ Sòng Bài"),
+  new SlashCommandBuilder()
+    .setName("huynpc")
+    .setDescription("Huỷ vai Chủ Sòng Bài"),
+  new SlashCommandBuilder()
+    .setName("setmaxchanle")
+    .setDescription("Chủ Sòng đặt mức cược tối đa chẵn lẻ")
+    .addIntegerOption((option) =>
+      option
+        .setName("nganluong")
+        .setDescription("Số Ngân Lượng tối đa mỗi lệnh chẵn lẻ")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
+    .setName("settaisanchusongbai")
+    .setDescription("Admin đặt mức tài sản tối thiểu để nhận Chủ Sòng Bài")
+    .addIntegerOption((option) =>
+      option
+        .setName("nganluong")
+        .setDescription("Số Ngân Lượng tối thiểu")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
     .setName("hamnguc")
     .setDescription("Xem chỉ số thủ vệ hầm ngục"),
   new SlashCommandBuilder()
