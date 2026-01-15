@@ -153,6 +153,30 @@ function initializeSchema(db) {
     WHERE NOT EXISTS (SELECT 1 FROM casino_state WHERE id = 1);
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS lixi_packets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      creator_id TEXT NOT NULL,
+      total_amount INTEGER NOT NULL,
+      slots INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      completed_at INTEGER,
+      message_id TEXT,
+      channel_id TEXT
+    );
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS lixi_participants (
+      lixi_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      share INTEGER,
+      joined_at INTEGER NOT NULL,
+      PRIMARY KEY (lixi_id, user_id)
+    );
+  `);
+
   const columns = db.prepare(`PRAGMA table_info(users)`);
   const existing = [];
   while (columns.step()) {

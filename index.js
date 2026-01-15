@@ -13,6 +13,7 @@ const createBicanhService = require("./services/bicanh");
 const createShopService = require("./services/shop");
 const createCasinoService = require("./services/casino");
 const createBauCuaService = require("./services/bauCua");
+const createLiXiService = require("./services/lixi");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -54,6 +55,7 @@ let bicanhService = null;
 let shopService = null;
 let bauCuaService = null;
 let casinoService = null;
+let lixiService = null;
 
 async function withDatabase(callback) {
     const {db, persist, close} = await getDatabase(process.env.DB_PATH);
@@ -134,6 +136,15 @@ async function withDatabase(callback) {
         clientRefGetter: () => clientRef,
     });
 
+    lixiService = createLiXiService({
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+    });
+
     client.once(Events.ClientReady, () => {
         console.log(`Ready as ${client.user.tag}`);
         clientRef = client;
@@ -172,6 +183,10 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "baucua") {
                         await bauCuaService.handleBet(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "lixi") {
+                        await lixiService.handleCreate(interaction, db, persist);
                     }
 
                     if (interaction.commandName === "npc") {
@@ -230,6 +245,9 @@ async function withDatabase(callback) {
                         await handleBackup(interaction, db, persist);
                     }
                 } else if (interaction.isButton()) {
+                    const lixiHandled = await lixiService.handleButton(interaction, db, persist);
+                    if (lixiHandled) return;
+
                     const handled = await shopService.handleButton(interaction, db, persist);
                     if (handled) return;
                 }
@@ -246,6 +264,12 @@ async function withDatabase(callback) {
     });
 
     await client.login(process.env.DISCORD_TOKEN);
+
+    client.on("guildCreate", guild => {
+        if (guild.id !== process.env.GUILD_ID) {
+            guild.leave();
+        }
+    });
 })().catch((error) => {
     console.error("Bot failed to start:", error);
     process.exit(1);

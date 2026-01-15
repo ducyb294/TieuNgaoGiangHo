@@ -75,6 +75,24 @@ const commands = [
         .setMinValue(1)
     ),
   new SlashCommandBuilder()
+    .setName("lixi")
+    .setDescription("Gửi lì xì cho mọi người")
+    .addIntegerOption((option) =>
+      option
+        .setName("songuoi")
+        .setDescription("Số người nhận")
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(20)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("nganluong")
+        .setDescription("Số ngân lượng muốn chia")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
     .setName("taisan")
     .setDescription("Xem nhanh tài sản"),
   new SlashCommandBuilder()
