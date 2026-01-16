@@ -907,29 +907,39 @@ async function handleUpdate(interaction, db, persist) {
         }
 
         exec(
-            'git log ORIG_HEAD..HEAD --pretty=format:"- %s — %an"',
+            'git log ORIG_HEAD..HEAD --pretty=format:"%s|||%an"',
             { cwd: __dirname },
             async (logErr, logStdout) => {
-                let commitList = logStdout?.trim();
+                let description = "";
 
-                if (!commitList) {
-                    commitList = "Không có commit mới.";
+                if (!logStdout?.trim()) {
+                    description = "Không có commit mới.";
+                } else {
+                    const lines = logStdout.split("\n");
+
+                    const commitsByAuthor = {};
+
+                    for (const line of lines) {
+                        const [message, author] = line.split("|||");
+                        if (!commitsByAuthor[author]) {
+                            commitsByAuthor[author] = [];
+                        }
+                        commitsByAuthor[author].push(message);
+                    }
+
+                    for (const author in commitsByAuthor) {
+                        description += `**👤 ${author}**\n`;
+                        for (const msg of commitsByAuthor[author]) {
+                            description += `• ${msg}\n`;
+                        }
+                        description += "\n";
+                    }
                 }
 
                 const successEmbed = {
                     color: 0x2ecc71,
                     title: "✅ Success",
-                    fields: [
-                        {
-                            name: "📦 Commit",
-                            value: `\`\`\`\n${commitList}\n\`\`\``,
-                        },
-                        {
-                            name: "👤 by",
-                            value: interaction.user.tag,
-                            inline: true,
-                        },
-                    ],
+                    description,
                     timestamp: new Date().toISOString(),
                 };
 
