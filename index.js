@@ -888,42 +888,54 @@ async function handleUpdate(interaction, db, persist) {
         return;
     }
 
-    await interaction.reply({ content: "🔄 **Đang pull code...**.", ephemeral: false });
+    await interaction.reply({ content: "🔄 Đang pull code...", ephemeral: false });
 
     const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID);
     if (!logChannel) return;
 
     exec("git pull", { cwd: __dirname }, async (error, stdout, stderr) => {
         if (error) {
-            await logChannel.send(
-                `❌ **Update thất bại**
-\`\`\`
-${stderr || error.message}
-\`\`\``
-            );
+            const errorEmbed = {
+                color: 0xe74c3c,
+                title: "❌ Error",
+                description: `\`\`\`\n${stderr || error.message}\n\`\`\``,
+                timestamp: new Date().toISOString(),
+            };
+
+            await logChannel.send({ embeds: [errorEmbed] });
             return;
         }
 
-        // Lấy danh sách commit vừa pull
         exec(
-            'git log ORIG_HEAD..HEAD --pretty=format:"- %s"',
+            'git log ORIG_HEAD..HEAD --pretty=format:"- %s — %an"',
             { cwd: __dirname },
             async (logErr, logStdout) => {
                 let commitList = logStdout?.trim();
 
                 if (!commitList) {
-                    commitList = "- Không có commit mới";
+                    commitList = "Không có commit mới.";
                 }
 
-                await logChannel.send(
-                    `✅ **Update thành công**
-📦 **Commit:**
-\`\`\`
-${commitList}
-\`\`\`
-`
-                );
+                const successEmbed = {
+                    color: 0x2ecc71,
+                    title: "✅ Success",
+                    fields: [
+                        {
+                            name: "📦 Commit",
+                            value: `\`\`\`\n${commitList}\n\`\`\``,
+                        },
+                        {
+                            name: "👤 by",
+                            value: interaction.user.tag,
+                            inline: true,
+                        },
+                    ],
+                    timestamp: new Date().toISOString(),
+                };
 
+                await logChannel.send({ embeds: [successEmbed] });
+
+                // Restart bot
                 const batPath = path.join(__dirname, "z-index.bat");
                 const child = spawn("cmd.exe", ["/c", batPath], {
                     detached: true,
