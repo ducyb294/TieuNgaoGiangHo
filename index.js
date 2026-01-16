@@ -1,4 +1,6 @@
 require("dotenv").config();
+const { exec, spawn } = require("child_process");
+const path = require("path");
 const {
     Client,
     Events,
@@ -243,6 +245,10 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "backup") {
                         await handleBackup(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "update") {
+                        await handleUpdate(interaction, db, persist);
                     }
                 } else if (interaction.isButton()) {
                     const lixiHandled = await lixiService.handleButton(interaction, db, persist);
@@ -845,6 +851,43 @@ async function handleBackup(interaction, db, persist) {
         content: "Đang gửi file backup...",
         files: [{attachment: dbPath, name: "data-backup.db"}],
         ephemeral: false,
+    });
+}
+
+async function handleUpdate(interaction, db, persist) {
+    if (ADMIN_CHANNEL_ID && interaction.channelId !== ADMIN_CHANNEL_ID) {
+        await interaction.reply({content: "Error.", ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    if (ADMIN_ROLE_ID && !member.roles.cache.has(ADMIN_ROLE_ID)) {
+        await interaction.reply({content: "Bạn không có quyền dùng lệnh này.", ephemeral: true});
+        return;
+    }
+
+    await interaction.reply({content: "Đang git pull...", ephemeral: false});
+
+    exec("git pull", { cwd: __dirname }, async (error, stdout, stderr) => {
+        if (error) {
+            await interaction.followUp({content: `Git pull thất bại:\n\`\`\`${stderr || error.message}\`\`\``, ephemeral: false});
+            return;
+        }
+
+        await interaction.followUp({content: `Git pull thành công:\n\`\`\`${stdout}\`\`\`\nĐang restart bot...`, ephemeral: false});
+
+        // Spawn z-index.bat detached và exit process hiện tại
+        const batPath = path.join(__dirname, "z-index.bat");
+        const child = spawn("cmd.exe", ["/c", batPath], {
+            detached: true,
+            stdio: "ignore",
+            cwd: __dirname,
+        });
+        child.unref();
+
+        setTimeout(() => {
+            process.exit(0);
+        }, 1000);
     });
 }
 

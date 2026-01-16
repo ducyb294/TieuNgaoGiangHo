@@ -172,6 +172,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName("topcaothu")
     .setDescription("Top 10 cao thủ (level, exp)"),
+  new SlashCommandBuilder()
+    .setName("update")
+    .setDescription("Update (Admin only)"),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
