@@ -51,6 +51,7 @@ const CASINO_ROLE_ID = process.env.CASINO_ROLE_ID;
 const FARM_INTERVAL_MS = 60 * 1000;
 const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
 const ADMIN_CHANNEL_ID = process.env.ADMIN_CHANNEL_ID;
+const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 
 let clientRef = null;
@@ -877,38 +878,63 @@ async function handleBackup(interaction, db, persist) {
 
 async function handleUpdate(interaction, db, persist) {
     if (ADMIN_CHANNEL_ID && interaction.channelId !== ADMIN_CHANNEL_ID) {
-        await interaction.reply({content: "Error.", ephemeral: true});
+        await interaction.reply({ content: "Error.", ephemeral: true });
         return;
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
     if (ADMIN_ROLE_ID && !member.roles.cache.has(ADMIN_ROLE_ID)) {
-        await interaction.reply({content: "Bạn không có quyền dùng lệnh này.", ephemeral: true});
+        await interaction.reply({ content: "Bạn không có quyền dùng lệnh này.", ephemeral: true });
         return;
     }
 
-    await interaction.reply({content: "Đang git pull...", ephemeral: false});
+    await interaction.reply({ content: "🔄 **Đang pull code...**.", ephemeral: false });
+
+    const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID);
+    if (!logChannel) return;
 
     exec("git pull", { cwd: __dirname }, async (error, stdout, stderr) => {
         if (error) {
-            await interaction.followUp({content: `Git pull thất bại:\n\`\`\`${stderr || error.message}\`\`\``, ephemeral: false});
+            await logChannel.send(
+                `❌ **Update thất bại**
+\`\`\`
+${stderr || error.message}
+\`\`\``
+            );
             return;
         }
 
-        await interaction.followUp({content: `Git pull thành công:\n\`\`\`${stdout}\`\`\`\nĐang restart bot...`, ephemeral: false});
+        // Lấy danh sách commit vừa pull
+        exec(
+            'git log ORIG_HEAD..HEAD --pretty=format:"- %s"',
+            { cwd: __dirname },
+            async (logErr, logStdout) => {
+                let commitList = logStdout?.trim();
 
-        // Spawn z-index.bat detached và exit process hiện tại
-        const batPath = path.join(__dirname, "z-index.bat");
-        const child = spawn("cmd.exe", ["/c", batPath], {
-            detached: true,
-            stdio: "ignore",
-            cwd: __dirname,
-        });
-        child.unref();
+                if (!commitList) {
+                    commitList = "- Không có commit mới";
+                }
 
-        setTimeout(() => {
-            process.exit(0);
-        }, 1000);
+                await logChannel.send(
+                    `✅ **Update thành công**
+📦 **Commit:**
+\`\`\`
+${commitList}
+\`\`\`
+`
+                );
+
+                const batPath = path.join(__dirname, "z-index.bat");
+                const child = spawn("cmd.exe", ["/c", batPath], {
+                    detached: true,
+                    stdio: "ignore",
+                    cwd: __dirname,
+                });
+                child.unref();
+
+                setTimeout(() => process.exit(0), 1000);
+            }
+        );
     });
 }
 
