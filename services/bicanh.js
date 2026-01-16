@@ -412,7 +412,7 @@ function createBicanhService({
 
     await interaction.reply({
       content: `Đã nhận **${formatNumber(pending)} ${CURRENCY_NAME}** từ farm hầm ngục.`,
-      ephemeral: true,
+      ephemeral: false,
     });
   }
 
