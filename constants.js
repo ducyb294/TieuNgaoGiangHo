@@ -9,7 +9,7 @@ const STAT_LABELS = {
   dodge: "Né Tránh",
   accuracy: "Chính Xác",
   critRate: "Tỉ lệ Chí Mạng",
-  critDamageResistance: "Kháng ST Chí Mạng",
+  critDamageResistance: "Kháng Chí Mạng",
   armorPenetration: "Xuyên Giáp",
   armorResistance: "Kháng Xuyên Giáp",
 };

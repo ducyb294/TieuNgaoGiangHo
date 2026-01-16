@@ -593,7 +593,7 @@ async function handleTopDaiGia(interaction, db, persist) {
     stmt.free();
 
     const lines = rows.map((row, idx) =>
-        `${idx + 1}. <@${row.user_id}> (${row.base_name}) - **${formatNumber(row.currency)} ${CURRENCY_NAME}**`
+        `${idx + 1}. <@${row.user_id}> | **${formatNumber(row.currency)} ${CURRENCY_NAME}**`
     );
 
     await interaction.reply({
@@ -630,7 +630,7 @@ async function handleTopCaoThu(interaction, db, persist) {
     stmt.free();
 
     const lines = rows.map((row, idx) =>
-        `${idx + 1}. <@${row.user_id}> (${row.base_name}) - Level ${row.level} | Exp ${formatNumber(row.exp)}`
+        `${idx + 1}. <@${row.user_id}> | Exp ${formatNumber(row.exp)}`
     );
 
     await interaction.reply({

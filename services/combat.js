@@ -17,7 +17,7 @@ function pickFirstAttacker(a, b) {
 
 function simulateCombat(attacker, defender, options = {}) {
   const maxRounds = options.maxRounds || 50;
-  const critMultiplier = options.critMultiplier || 1.5;
+  const critMultiplier = options.critMultiplier || 2;
 
   const [first, second] = pickFirstAttacker(attacker, defender);
 
@@ -51,8 +51,10 @@ function simulateCombat(attacker, defender, options = {}) {
       (def.defense || 0) *
       (1 + (def.armor_resistance || 0) / 100) *
       (1 - (atk.armor_penetration || 0) / 100);
-    const baseDamage = Math.max(1, (atk.attack || 0) - effectiveDefense);
-    const damage = Math.max(1, Math.round(baseDamage * (isCrit ? critMultiplier : 1)));
+
+    // Chí mạng: tấn công x2 trước, rồi mới trừ thủ
+    const effectiveAttack = (atk.attack || 0) * (isCrit ? critMultiplier : 1);
+    const damage = Math.max(1, Math.round(effectiveAttack - effectiveDefense));
 
     state[def.id].hp = Math.max(0, state[def.id].hp - damage);
     rounds.push(
