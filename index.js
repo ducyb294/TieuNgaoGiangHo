@@ -148,12 +148,24 @@ async function withDatabase(callback) {
         CURRENCY_NAME,
     });
 
-    client.once(Events.ClientReady, () => {
+    client.once(Events.ClientReady, async () => {
         console.log(`Ready as ${client.user.tag}`);
         clientRef = client;
         bicanhService.startFarmLoop();
         bauCuaService.init();
         casinoService.init();
+
+        // Thông báo bot đã khởi động vào kênh admin
+        if (ADMIN_CHANNEL_ID) {
+            try {
+                const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID);
+                if (adminChannel) {
+                    await adminChannel.send("Bot đã khởi động thành công!");
+                }
+            } catch (error) {
+                console.error("Không thể gửi thông báo khởi động:", error);
+            }
+        }
     });
 
     client.on(Events.InteractionCreate, async (interaction) => {
