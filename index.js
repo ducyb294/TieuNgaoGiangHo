@@ -848,8 +848,8 @@ async function handleBackup(interaction, db, persist) {
 
     const dbPath = process.env.DB_PATH || "./data.db";
     await interaction.reply({
-        content: "Đang gửi file backup...",
-        files: [{attachment: dbPath, name: "data-backup.db"}],
+        content: "File DB",
+        files: [{attachment: dbPath, name: "data.db"}],
         ephemeral: false,
     });
 }
