@@ -175,6 +175,15 @@ const commands = [
   new SlashCommandBuilder()
     .setName("update")
     .setDescription("Update (Admin only)"),
+  new SlashCommandBuilder()
+    .setName("backupenv")
+    .setDescription("Backup file .env (Admin only)"),
+  new SlashCommandBuilder()
+    .setName("uploadenv")
+    .setDescription("Upload file .env mới (Admin only)")
+    .addAttachmentOption((option) =>
+      option.setName("file").setDescription("File .env mới").setRequired(true)
+    ),
 ].map((cmd) => cmd.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

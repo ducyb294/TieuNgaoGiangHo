@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { exec, spawn } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 const {
     Client,
     Events,
@@ -249,6 +250,14 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "update") {
                         await handleUpdate(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "backupenv") {
+                        await handleBackupEnv(interaction);
+                    }
+
+                    if (interaction.commandName === "uploadenv") {
+                        await handleUploadEnv(interaction);
                     }
                 } else if (interaction.isButton()) {
                     const lixiHandled = await lixiService.handleButton(interaction, db, persist);
@@ -891,6 +900,53 @@ async function handleUpdate(interaction, db, persist) {
     });
 }
 
+async function handleBackupEnv(interaction) {
+    if (ADMIN_CHANNEL_ID && interaction.channelId !== ADMIN_CHANNEL_ID) {
+        await interaction.reply({content: "Error.", ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    if (ADMIN_ROLE_ID && !member.roles.cache.has(ADMIN_ROLE_ID)) {
+        await interaction.reply({content: "Bạn không có quyền dùng lệnh này.", ephemeral: true});
+        return;
+    }
+
+    const envPath = path.join(__dirname, ".env");
+    await interaction.reply({
+        content: "File .env",
+        files: [{attachment: envPath, name: ".env"}],
+        ephemeral: false,
+    });
+}
+
+async function handleUploadEnv(interaction) {
+    if (ADMIN_CHANNEL_ID && interaction.channelId !== ADMIN_CHANNEL_ID) {
+        await interaction.reply({content: "Error.", ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    if (ADMIN_ROLE_ID && !member.roles.cache.has(ADMIN_ROLE_ID)) {
+        await interaction.reply({content: "Bạn không có quyền dùng lệnh này.", ephemeral: true});
+        return;
+    }
+
+    const attachment = interaction.options.getAttachment("file", true);
+
+    try {
+        const response = await fetch(attachment.url);
+        const content = await response.text();
+
+        const envPath = path.join(__dirname, ".env");
+        fs.writeFileSync(envPath, content, "utf8");
+
+        await interaction.reply({content: "Đã cập nhật file .env thành công!", ephemeral: false});
+    } catch (error) {
+        console.error("Upload env error:", error);
+        await interaction.reply({content: `Lỗi: ${error.message}`, ephemeral: true});
+    }
+}
 
 function applyLevelUps(db, persist, user) {
     let currentLevel = user.level;
