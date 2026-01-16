@@ -410,8 +410,24 @@ function createBicanhService({
       console.error("Update farm message after claim failed:", error);
     }
 
+    // Tính thời gian farm dựa vào số lượng nhận được
+    const avgMinutes = Math.round(pending / (guardLevel * LINH_THACH_RATE));
+    const hours = Math.floor(avgMinutes / 60);
+    const minutes = avgMinutes % 60;
+    const timeStr = hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
+
     await interaction.reply({
-      content: `Đã nhận **${formatNumber(pending)} ${CURRENCY_NAME}** từ farm hầm ngục.`,
+      embeds: [
+        {
+          color: 0x2ecc71,
+          title: "⛏️ Nhận thưởng hầm ngục",
+          description:
+            `Đã nhận **${formatNumber(pending)} ${CURRENCY_NAME}**\n` +
+            `Thời gian farm: **${timeStr}**\n` +
+            `Tầng hầm ngục: **${guardLevel}**`,
+          timestamp: new Date(),
+        },
+      ],
       ephemeral: false,
     });
   }
