@@ -52,6 +52,7 @@ const FARM_INTERVAL_MS = 60 * 1000;
 const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
 const ADMIN_CHANNEL_ID = process.env.ADMIN_CHANNEL_ID;
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
+const ERROR_LOG_CHANNEL_ID = process.env.ERROR_LOG_CHANNEL_ID;
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 
 let clientRef = null;
@@ -60,6 +61,32 @@ let shopService = null;
 let bauCuaService = null;
 let casinoService = null;
 let lixiService = null;
+
+async function sendErrorLog(title, error) {
+    if (!clientRef || !ERROR_LOG_CHANNEL_ID) return;
+    try {
+        const channel = await clientRef.channels.fetch(ERROR_LOG_CHANNEL_ID);
+        if (channel) {
+            const errorMessage = error?.stack || error?.message || String(error);
+            await channel.send({
+                embeds: [{
+                    color: 0xe74c3c,
+                    title: `❌ ${title}`,
+                    description: `\`\`\`\n${errorMessage.slice(0, 3800)}\n\`\`\``,
+                    timestamp: new Date().toISOString(),
+                }]
+            });
+        }
+    } catch (_) {}
+}
+
+process.on('uncaughtException', (err) => {
+    sendErrorLog('Uncaught Exception', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    sendErrorLog('Unhandled Rejection', reason);
+});
 
 async function withDatabase(callback) {
     const {db, persist, close} = await getDatabase(process.env.DB_PATH);
