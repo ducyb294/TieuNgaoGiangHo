@@ -549,26 +549,28 @@ function createBicanhService({
                       `👤 <@${upd.user_id}>\n` +
                       `🔺 **Level:** ${upd.oldLevel} → ${upd.newLevel}\n` +
                       `✨ **Exp còn lại:** ${formatNumber(upd.newExp)}\n` +
-                      `✨ **Exp level tiếp theo:** ${formatNumber(upd.expToNext(nextLevelInt))}\n` +
+                      `✨ **Exp level tiếp theo:** ${formatNumber(expToNext(nextLevelInt))}\n` +
                       `💰 **${CURRENCY_NAME}:** ${formatNumber(upd.currency)}`,
                     timestamp: new Date().toISOString(),
                   },
                 ],
               });
             }
+
+            try {
+              const member = await thread.guild.members.fetch(upd.user_id);
+              if (member) {
+                await updateNickname(member, upd.baseName, upd.newLevel);
+              }
+            } catch (error) {
+              console.error("Update nickname on level up failed:", error);
+            }
           } catch (error) {
             console.error("Send level up notification failed:", error);
           }
 
           // Update nickname when level up
-          try {
-            const member = await thread.guild.members.fetch(upd.user_id);
-            if (member) {
-              await updateNickname(member, upd.baseName, upd.newLevel);
-            }
-          } catch (error) {
-            console.error("Update nickname on level up failed:", error);
-          }
+          
         }
       } catch (error) {
         console.error("Farm update failed:", error);
