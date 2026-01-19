@@ -17,6 +17,7 @@ function createBicanhService({
   BICANH_DAILY_CHALLENGES,
   expToNext,
   INFO_CHANNEL_ID,
+  updateNickname,
 }) {
   let farmTimer = null;
   const MAX_FARM_CATCHUP_TICKS = 360; // 6 hours
@@ -544,7 +545,7 @@ function createBicanhService({
                     color: 0xffd700,
                     title: "🎉 LEVEL UP!",
                     description:
-                      `👤 <@${upd.user_id}> ${TEXT.levelUpSuccess}\n\n` +
+                      `👤 <@${upd.user_id}> ${TEXT.levelUpSuccess}\n` +
                       `🔺 **Level:** ${upd.oldLevel} → ${upd.newLevel}\n` +
                       `✨ **Exp còn lại:** ${formatNumber(upd.newExp)}\n` +
                       `💰 **${CURRENCY_NAME}:** ${formatNumber(upd.currency)}`,
@@ -555,6 +556,16 @@ function createBicanhService({
             }
           } catch (error) {
             console.error("Send level up notification failed:", error);
+          }
+
+          // Update nickname when level up
+          try {
+            const member = await thread.guild.members.fetch(upd.user_id);
+            if (member) {
+              await updateNickname(member, upd.baseName, upd.newLevel);
+            }
+          } catch (error) {
+            console.error("Update nickname on level up failed:", error);
           }
         }
       } catch (error) {

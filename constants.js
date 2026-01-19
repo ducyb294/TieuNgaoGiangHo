@@ -28,7 +28,7 @@ const TEXT = {
   renameSuccess: "Đã cập nhật tên.",
   renameInvalid: "Tên không hợp lệ.",
   notEnoughExp: "Chưa đủ exp.",
-  levelUpSuccess: "Đột phá thành công!",
+  levelUpSuccess: "đã lên level!",
   noStamina: "Hết thể lực, hãy đợi hồi 1 giờ/lượt.",
   notEnoughCurrency: "Không đủ linh thạch.",
   noBalance: "Bạn chưa có linh thạch để cược.",

@@ -94,6 +94,7 @@ async function withDatabase(callback) {
         BICANH_DAILY_CHALLENGES,
         expToNext,
         INFO_CHANNEL_ID,
+        updateNickname,
     });
 
     shopService = createShopService({
