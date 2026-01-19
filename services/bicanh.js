@@ -539,15 +539,17 @@ function createBicanhService({
           try {
             const infoChannel = await client.channels.fetch(INFO_CHANNEL_ID);
             if (infoChannel) {
+              const nextLevelInt = upd.newLevel + 1;
               await infoChannel.send({
                 embeds: [
                   {
                     color: 0xffd700,
                     title: "🎉 LEVEL UP!",
                     description:
-                      `👤 <@${upd.user_id}> ${TEXT.levelUpSuccess}\n` +
+                      `👤 <@${upd.user_id}>\n` +
                       `🔺 **Level:** ${upd.oldLevel} → ${upd.newLevel}\n` +
                       `✨ **Exp còn lại:** ${formatNumber(upd.newExp)}\n` +
+                      `✨ **Exp level tiếp theo:** ${formatNumber(upd.expToNext(nextLevelInt))}\n` +
                       `💰 **${CURRENCY_NAME}:** ${formatNumber(upd.currency)}`,
                     timestamp: new Date().toISOString(),
                   },
