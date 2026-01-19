@@ -15,6 +15,8 @@ function createBicanhService({
   simulateCombat,
   clientRefGetter,
   BICANH_DAILY_CHALLENGES,
+  expToNext,
+  INFO_CHANNEL_ID,
 }) {
   let farmTimer = null;
   const MAX_FARM_CATCHUP_TICKS = 360; // 6 hours
@@ -469,6 +471,30 @@ function createBicanhService({
           "UPDATE users SET exp = exp + ? WHERE user_id = ?",
           [expDelta, s.user_id]
         );
+
+        // Check for level up
+        const user = getUser(db, s.user_id);
+        let levelUps = 0;
+        let currentLevel = user ? user.level : 1;
+        let currentExp = user ? user.exp : 0;
+        const oldLevel = currentLevel;
+
+        while (true) {
+          const required = expToNext(currentLevel);
+          if (currentExp < required) break;
+          currentExp -= required;
+          currentLevel += 1;
+          levelUps += 1;
+        }
+
+        if (levelUps > 0) {
+          db.run("UPDATE users SET level = ?, exp = ? WHERE user_id = ?", [
+            currentLevel,
+            currentExp,
+            s.user_id,
+          ]);
+        }
+
         results.push({
           user_id: s.user_id,
           thread_id: s.thread_id,
@@ -479,6 +505,12 @@ function createBicanhService({
           guardLevel,
           newLast,
           total: s.total_earned + delta,
+          levelUps,
+          oldLevel,
+          newLevel: currentLevel,
+          newExp: currentExp,
+          baseName: user ? user.base_name : "Hiệp Khách",
+          currency: user ? user.currency : 0,
         });
       });
       db.run("COMMIT");
@@ -500,6 +532,31 @@ function createBicanhService({
           `Tổng tích lũy: ${formatNumber(upd.total)} ${CURRENCY_NAME}\n` +
           `Cập nhật: ${new Date().toLocaleString("vi-VN")}`;
         await message.edit({ content });
+
+        // Send level up embed to INFO_CHANNEL_ID if player leveled up
+        if (upd.levelUps > 0 && INFO_CHANNEL_ID) {
+          try {
+            const infoChannel = await client.channels.fetch(INFO_CHANNEL_ID);
+            if (infoChannel) {
+              await infoChannel.send({
+                embeds: [
+                  {
+                    color: 0xffd700,
+                    title: "🎉 LEVEL UP!",
+                    description:
+                      `👤 <@${upd.user_id}> ${TEXT.levelUpSuccess}\n\n` +
+                      `🔺 **Level:** ${upd.oldLevel} → ${upd.newLevel}\n` +
+                      `✨ **Exp còn lại:** ${formatNumber(upd.newExp)}\n` +
+                      `💰 **${CURRENCY_NAME}:** ${formatNumber(upd.currency)}`,
+                    timestamp: new Date().toISOString(),
+                  },
+                ],
+              });
+            }
+          } catch (error) {
+            console.error("Send level up notification failed:", error);
+          }
+        }
       } catch (error) {
         console.error("Farm update failed:", error);
       }

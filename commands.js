@@ -9,9 +9,6 @@ const commands = [
       option.setName("ten").setDescription("Tên mới").setRequired(true)
     ),
   new SlashCommandBuilder()
-    .setName("dotpha")
-    .setDescription("Nâng level khi đủ exp"),
-  new SlashCommandBuilder()
     .setName("info")
     .setDescription("Xem thông tin nhân vật"),
   new SlashCommandBuilder()

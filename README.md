@@ -5,7 +5,7 @@ Bot Discord nhập vai tu tiên với hệ thống level, biệt danh tự độ
 ## ✨ Chức năng chính
 
 - Thưởng EXP tự động mỗi phút (kể cả khi bot restart – EXP được tính bù).
-- Lệnh `/dotpha` để đột phá lên level mới khi đủ EXP (chỉ dùng trong kênh thông tin).
+- Tự động lên level khi đủ EXP trong quá trình farm hầm ngục.
 - Lệnh `/doiten` đổi nickname theo định dạng: `Tên - Level x` (chỉ dùng trong kênh đổi tên).
 - Lệnh `/info` hiển thị bảng thông tin nhân vật (level, EXP, chỉ số).
 - Lệnh `/daomo` tiêu thể lực để đào mỏ linh thạch trong kênh riêng.

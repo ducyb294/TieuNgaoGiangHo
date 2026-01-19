@@ -91,7 +91,9 @@ async function withDatabase(callback) {
         FARM_INTERVAL_MS,
         simulateCombat,
         clientRefGetter: () => clientRef,
-        BICANH_DAILY_CHALLENGES
+        BICANH_DAILY_CHALLENGES,
+        expToNext,
+        INFO_CHANNEL_ID,
     });
 
     shopService = createShopService({
@@ -175,10 +177,6 @@ async function withDatabase(callback) {
                 if (interaction.isChatInputCommand()) {
                     if (interaction.commandName === "doiten") {
                         await handleRename(interaction, db, persist);
-                    }
-
-                    if (interaction.commandName === "dotpha") {
-                        await handleBreakthrough(interaction, db, persist);
                     }
 
                     if (interaction.commandName === "info") {
@@ -483,55 +481,6 @@ async function handleRename(interaction, db, persist) {
     });
 }
 
-
-async function handleBreakthrough(interaction, db, persist) {
-    if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
-        await interaction.reply({content: TEXT.infoChannelOnly, ephemeral: true});
-        return;
-    }
-
-    const member = await interaction.guild.members.fetch(interaction.user.id);
-
-    let user = getUser(db, member.id);
-    if (!user) {
-        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
-    }
-
-    user = applyPassiveExpForUser(db, persist, user);
-
-    const requiredExp = expToNext(user.level);
-    if (user.exp < requiredExp) {
-        const missing = requiredExp - user.exp;
-        await interaction.reply({
-            content: `${TEXT.notEnoughExp} Còn thiếu ${missing} exp để lên level ${user.level + 1}.`,
-            ephemeral: true,
-        });
-        return;
-    }
-
-    const {level, exp} = applyLevelUps(db, persist, user);
-
-    // 👉 reload lại user sau khi level up
-    user = getUser(db, member.id);
-
-    const nickname = await updateNickname(member, user.base_name, level);
-
-    await interaction.reply({
-        embeds: [
-            {
-                color: 0xffd700,
-                title: "🎉 LEVEL UP!",
-                description:
-                    `**${TEXT.levelUpSuccess}**\n\n` +
-                    `🔺 **Level:** ${level}\n` +
-                    `✨ **Exp còn lại:** ${formatNumber(exp)}\n` +
-                    `💰 **${CURRENCY_NAME}:** ${formatNumber(user.currency)}`,
-                footer: {text: "/dotpha"},
-                timestamp: new Date()
-            }
-        ]
-    });
-}
 
 async function handleInfo(interaction, db, persist) {
     if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
@@ -1007,32 +956,6 @@ async function handleUploadEnv(interaction) {
         await interaction.reply({content: `Lỗi: ${error.message}`, ephemeral: true});
     }
 }
-
-function applyLevelUps(db, persist, user) {
-    let currentLevel = user.level;
-    let currentExp = user.exp;
-    let levelUps = 0;
-
-    while (true) {
-        const required = expToNext(currentLevel);
-        if (currentExp < required) break;
-        currentExp -= required;
-        currentLevel += 1;
-        levelUps += 1;
-    }
-
-    if (levelUps > 0) {
-        db.run("UPDATE users SET level = ?, exp = ? WHERE user_id = ?", [
-            currentLevel,
-            currentExp,
-            user.user_id,
-        ]);
-        persist();
-    }
-
-    return {level: currentLevel, exp: currentExp, levelUps};
-}
-
 
 function getBaseNameFromMember(member) {
     const raw =
