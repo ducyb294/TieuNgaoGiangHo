@@ -48,6 +48,16 @@ const commands = [
         )
     ),
   new SlashCommandBuilder()
+    .setName("blackjack")
+    .setDescription("Tạo bàn")
+    .addIntegerOption((option) =>
+      option
+        .setName("cuoc")
+        .setDescription("Số ngân lượng cược")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
     .setName("baucua")
     .setDescription("Đặt cược Bầu Cua")
     .addStringOption((option) =>

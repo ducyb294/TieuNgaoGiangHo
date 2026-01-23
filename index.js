@@ -17,6 +17,7 @@ const createShopService = require("./services/shop");
 const createCasinoService = require("./services/casino");
 const createBauCuaService = require("./services/bauCua");
 const createLiXiService = require("./services/lixi");
+const createBlackjackService = require("./services/blackjack");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -54,6 +55,8 @@ const ADMIN_CHANNEL_ID = process.env.ADMIN_CHANNEL_ID;
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
 const ERROR_LOG_CHANNEL_ID = process.env.ERROR_LOG_CHANNEL_ID;
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
+const BLACKJACK_CHANNEL_ID = process.env.BLACKJACK_CHANNEL_ID;
+const BLACKJACK_DEFAULT_BET = Number(process.env.BLACKJACK_DEFAULT_BET || 0);
 
 let clientRef = null;
 let bicanhService = null;
@@ -61,6 +64,7 @@ let shopService = null;
 let bauCuaService = null;
 let casinoService = null;
 let lixiService = null;
+let blackjackService = null;
 
 async function sendErrorLog(title, error) {
     if (!clientRef || !ERROR_LOG_CHANNEL_ID) return;
@@ -179,12 +183,27 @@ async function withDatabase(callback) {
         CURRENCY_NAME,
     });
 
+    blackjackService = createBlackjackService({
+        withDatabase,
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+        TEXT,
+        BLACKJACK_CHANNEL_ID,
+        defaultBet: BLACKJACK_DEFAULT_BET,
+        clientRefGetter: () => clientRef,
+    });
+
     client.once(Events.ClientReady, async () => {
         console.log(`Ready as ${client.user.tag}`);
         clientRef = client;
         bicanhService.startFarmLoop();
         bauCuaService.init();
         casinoService.init();
+        blackjackService.init();
 
         // Thông báo bot đã khởi động vào kênh admin
         if (ADMIN_CHANNEL_ID) {
@@ -221,6 +240,10 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "allinchanle") {
                         await handleChanLe(interaction, db, persist, true);
+                    }
+
+                    if (interaction.commandName === "blackjack") {
+                        await blackjackService.handleCommand(interaction, db, persist);
                     }
 
                     if (interaction.commandName === "baucua") {
@@ -304,6 +327,9 @@ async function withDatabase(callback) {
 
                     const handled = await shopService.handleButton(interaction, db, persist);
                     if (handled) return;
+
+                    const blackjackHandled = await blackjackService.handleButton(interaction, db, persist);
+                    if (blackjackHandled) return;
                 }
             });
         } catch (error) {
