@@ -332,7 +332,7 @@ function createBlackjackService({
           content: `Đang tạo bàn blackjack cược **${formatNumber(betAmount)} ${CURRENCY_NAME}**...`,
         });
 
-    const threadName = `Blackjack ${formatNumber(betAmount)} - ${creatorId || "auto"}`.slice(0, 90);
+    const threadName = `Blackjack ${formatNumber(betAmount)}`.slice(0, 90);
     const thread = await baseMessage.startThread({
       name: threadName,
       autoArchiveDuration: 1440,
