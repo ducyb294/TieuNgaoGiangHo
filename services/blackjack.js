@@ -134,6 +134,14 @@ function createBlackjackService({
     );
   };
 
+  const buildDisabledActionRow = (threadId) =>
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`bj_action:hit:${threadId}`).setLabel("Rút bài").setStyle(ButtonStyle.Primary).setDisabled(true),
+      new ButtonBuilder().setCustomId(`bj_action:stand:${threadId}`).setLabel("Dừng").setStyle(ButtonStyle.Secondary).setDisabled(true),
+      new ButtonBuilder().setCustomId(`bj_action:double:${threadId}`).setLabel("Gấp đôi").setStyle(ButtonStyle.Success).setDisabled(true),
+      new ButtonBuilder().setCustomId(`bj_action:split:${threadId}`).setLabel("Chia").setStyle(ButtonStyle.Danger).setDisabled(true)
+    );
+
   const touch = (table) => {
     table.lastActivity = Date.now();
     scheduleCleanup(table);
@@ -299,6 +307,20 @@ function createBlackjackService({
       return [buildActionRow(table)];
     }
     return [];
+  };
+
+  const disableStateButtons = async (table) => {
+    if (!table.stateMessageId) return;
+    const thread = await getThread(table.threadId);
+    if (!thread) return;
+    try {
+      const msg = await thread.messages.fetch(table.stateMessageId);
+      await msg.edit({
+        components: [buildDisabledActionRow(table.threadId)],
+      });
+    } catch (error) {
+      console.error("Không thể disable nút sau khi kết thúc ván:", error);
+    }
   };
 
   const ensureTable = async ({ channel, betAmount, creatorId, interaction, note }) => {
@@ -573,6 +595,7 @@ function createBlackjackService({
   const finishRound = async (table) => {
     clearTurnTimers(table);
     table.roundFinished = true;
+    await disableStateButtons(table);
     const thread = await getThread(table.threadId);
 
     let dealerValue = handValue({ cards: table.dealerHand });
