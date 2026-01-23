@@ -215,12 +215,12 @@ function createBlackjackService({
                   ? p.hands
                       .map((h, hIdx) => {
                         const status = h.busted
-                          ? "BUST"
+                          ? "Quắc"
                           : h.finished
                           ? "Đứng"
                           : "Đang chơi";
                         const handMarker =
-                          isCurrentPlayer && currentPlayer.handIndex === hIdx ? " (dang choi)" : "";
+                          isCurrentPlayer && currentPlayer.handIndex === hIdx ? " (playing)" : "";
                         return `Hand ${hIdx + 1}${handMarker}: ${formatHand(h)} [${status}${h.doubled ? ", x2" : ""}]`;
                       })
                       .join(" | ")
