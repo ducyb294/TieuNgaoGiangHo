@@ -1,8 +1,9 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 const START_DELAY_MS = 10_000;
-const TURN_CHOICE_MS = 10_000;
-const TURN_TIMEOUT_MS = 15_000;
+const TURN_SOFT_MS = 10_000;
+const TURN_HARD_MS = 15_000;
+const AUTO_DELETE_MS = 30 * 60 * 1000;
 
 function createBlackjackService({
   withDatabase,
@@ -18,26 +19,10 @@ function createBlackjackService({
   clientRefGetter,
 }) {
   const tables = new Map();
-  const pendingActions = new Map(); // threadId -> { playerId, resolve }
-
   const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
   const suits = ["♠", "♥", "♦", "♣"];
 
   const getClient = () => (clientRefGetter ? clientRefGetter() : null);
-
-  const getThread = async (threadId) => {
-    if (!threadId) return null;
-    const client = getClient();
-    if (!client) return null;
-    const cached = client.channels.cache.get(threadId);
-    if (cached) return cached;
-    try {
-      return await client.channels.fetch(threadId);
-    } catch (error) {
-      console.error("Không lấy được thread blackjack:", error);
-      return null;
-    }
-  };
 
   const getChannel = async () => {
     if (!BLACKJACK_CHANNEL_ID) return null;
@@ -53,12 +38,23 @@ function createBlackjackService({
     }
   };
 
+  const getThread = async (threadId) => {
+    if (!threadId) return null;
+    const client = getClient();
+    if (!client) return null;
+    const cached = client.channels.cache.get(threadId);
+    if (cached) return cached;
+    try {
+      return await client.channels.fetch(threadId);
+    } catch (error) {
+      return null;
+    }
+  };
+
   const buildDeck = () => {
     const deck = [];
     for (const suit of suits) {
-      for (const rank of ranks) {
-        deck.push({ rank, suit });
-      }
+      for (const rank of ranks) deck.push({ rank, suit });
     }
     for (let i = deck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -68,13 +64,12 @@ function createBlackjackService({
   };
 
   const drawCard = (deck) => deck.pop();
-
   const cardToString = (card) => `${card.rank}${card.suit}`;
 
   const handValue = (hand) => {
     let total = 0;
     let aces = 0;
-    for (const card of hand) {
+    for (const card of hand.cards) {
       if (card.rank === "A") {
         total += 11;
         aces += 1;
@@ -91,7 +86,7 @@ function createBlackjackService({
     return total;
   };
 
-  const formatHand = (hand) => `${hand.map(cardToString).join(", ")} (${handValue(hand)})`;
+  const formatHand = (hand) => `${hand.cards.map(cardToString).join(", ")} (${handValue(hand)})`;
 
   const buildJoinRow = (threadId, disabled = false) =>
     new ActionRowBuilder().addComponents(
@@ -102,91 +97,194 @@ function createBlackjackService({
         .setDisabled(disabled)
     );
 
-  const buildActionRow = (threadId, disabled = false) =>
+  const buildActionRow = (threadId) =>
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`bj_action:hit:${threadId}`)
         .setLabel("Rút bài")
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(disabled),
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`bj_action:stand:${threadId}`)
         .setLabel("Dừng")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(disabled)
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`bj_action:double:${threadId}`)
+        .setLabel("Gấp đôi")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`bj_action:split:${threadId}`)
+        .setLabel("Chia")
+        .setStyle(ButtonStyle.Danger)
     );
 
-  const buildLobbyEmbed = (table, statusText) => {
-    const playersText =
-      table.players.length > 0
-        ? table.players.map((p, idx) => `${idx + 1}. <@${p.id}>`).join("\n")
-        : "Chưa có ai.";
-    const status =
-      statusText ||
-      (table.state === "playing"
-        ? "Đang chơi, vui lòng đợi ván mới."
+  const touch = (table) => {
+    table.lastActivity = Date.now();
+    scheduleCleanup(table);
+  };
+
+  const clearCountdownTimers = (table) => {
+    if (table.countdownTimeout) clearTimeout(table.countdownTimeout);
+    table.countdownTimeout = null;
+    table.countdownEndsAt = null;
+  };
+
+  const clearTurnTimers = (table) => {
+    if (table.turnTimeout) clearTimeout(table.turnTimeout);
+    if (table.turnInterval) clearInterval(table.turnInterval);
+    table.turnTimeout = null;
+    table.turnInterval = null;
+    table.turnDeadline = null;
+  };
+
+  const startTurnTimers = (table) => {
+    clearTurnTimers(table);
+    table.turnDeadline = Date.now() + TURN_HARD_MS;
+    table.turnTimeout = setTimeout(() => handleAutoStand(table.threadId), TURN_HARD_MS);
+    table.turnInterval = setInterval(() => updateStateMessage(table), 1000);
+  };
+
+  const scheduleCleanup = (table) => {
+    if (table.cleanupTimeout) clearTimeout(table.cleanupTimeout);
+    table.cleanupTimeout = setTimeout(() => cleanupTable(table.threadId), AUTO_DELETE_MS);
+  };
+
+  const cleanupTable = async (tableId) => {
+    const table = tables.get(tableId);
+    if (!table) return;
+    clearCountdownTimers(table);
+    clearTurnTimers(table);
+    if (table.cleanupTimeout) clearTimeout(table.cleanupTimeout);
+    tables.delete(tableId);
+    const thread = await getThread(tableId);
+    if (thread) {
+      try {
+        await thread.send("Bàn bị xóa do không hoạt động 30 phút.");
+      } catch (_) {}
+      try {
+        await thread.delete();
+      } catch (error) {
+        console.error("Không thể xóa thread blackjack:", error);
+      }
+    }
+  };
+
+  const buildStateEmbed = (table, opts = {}) => {
+    const now = Date.now();
+    const isPlaying = table.state === "playing";
+    const currentPlayer = getCurrentPlayer(table);
+    const timeLeft =
+      isPlaying && table.turnDeadline ? Math.max(0, Math.ceil((table.turnDeadline - now) / 1000)) : null;
+
+    let dealerText = "Chưa chia.";
+    if (table.dealerHand.length > 0) {
+      if (table.roundFinished) {
+        dealerText = formatHand({ cards: table.dealerHand });
+      } else {
+        dealerText = `${cardToString(table.dealerHand[0])} + [?]`;
+      }
+    }
+
+    const playerLines =
+      table.players.length === 0
+        ? "Chưa có người chơi."
+        : table.players
+            .map((p, pIdx) => {
+              const handsText =
+                p.hands && p.hands.length > 0
+                  ? p.hands
+                      .map((h, hIdx) => {
+                        const value = handValue(h);
+                        const status = h.busted
+                          ? "BUST"
+                          : h.finished
+                          ? "Đứng"
+                          : "Đang chơi";
+                        const arrow =
+                          isPlaying && currentPlayer && currentPlayer.player.id === p.id && currentPlayer.handIndex === hIdx
+                            ? "➡️ "
+                            : "";
+                        return `${arrow}Hand ${hIdx + 1}: ${formatHand(h)} [${status}${h.doubled ? ", x2" : ""}]`;
+                      })
+                      .join(" | ")
+                  : "Chưa chia.";
+              return `${pIdx + 1}. <@${p.id}> - ${handsText}`;
+            })
+            .join("\n");
+
+    const description =
+      table.state === "waiting"
+        ? "Nhấn Tham gia để vào bàn. Khi có người sẽ đếm ngược 10s."
         : table.state === "countdown"
-          ? "Chuẩn bị bắt đầu (~10s)."
-          : "Nhấn Tham gia để vào bàn.");
+        ? "Sắp bắt đầu, người mới tham gia sẽ reset thời gian."
+        : table.state === "playing"
+        ? `Đang chơi. Lượt hiện tại: ${currentPlayer ? `<@${currentPlayer.player.id}> (hand ${currentPlayer.handIndex + 1})` : "N/A"}.`
+        : "Đang chuẩn bị.";
+
+    const fields = [
+      { name: "Tiền cược", value: `${formatNumber(table.betAmount)} ${CURRENCY_NAME}`, inline: true },
+      { name: "Dealer", value: dealerText, inline: true },
+      { name: "Người chơi", value: playerLines },
+    ];
+
+    if (table.state === "countdown" && table.countdownEndsAt) {
+      const left = Math.max(0, Math.ceil((table.countdownEndsAt - now) / 1000));
+      fields.push({ name: "Bắt đầu sau", value: `${left}s`, inline: true });
+    }
+
+    if (isPlaying && timeLeft !== null) {
+      fields.push({ name: "Thời gian còn", value: `${timeLeft}s`, inline: true });
+    }
 
     return {
-      color: 0x3498db,
+      color: opts.color || (table.state === "playing" ? 0x3498db : 0x2ecc71),
       title: `Bàn Blackjack (${formatNumber(table.betAmount)} ${CURRENCY_NAME})`,
-      description: status,
-      fields: [
-        {
-          name: "Người chơi",
-          value: playersText,
-        },
-        {
-          name: "Thread",
-          value: `<#${table.threadId}>`,
-          inline: true,
-        },
-        {
-          name: "Trạng thái",
-          value: table.state,
-          inline: true,
-        },
-      ],
+      description,
+      fields,
       timestamp: new Date().toISOString(),
     };
   };
 
-  const refreshLobbyMessage = async (table, statusText, disableJoin = table.state === "playing") => {
-    if (!table.lobbyMessageId) return;
+  const postStateMessage = async (table, components) => {
     const thread = await getThread(table.threadId);
     if (!thread) return;
+    const message = await thread.send({
+      embeds: [buildStateEmbed(table)],
+      components: components || [],
+    });
+    table.stateMessageId = message.id;
+    return message;
+  };
+
+  const updateStateMessage = async (table) => {
+    const thread = await getThread(table.threadId);
+    if (!thread) return;
+    const components = buildComponents(table);
     try {
-      const lobbyMessage = await thread.messages.fetch(table.lobbyMessageId);
-      await lobbyMessage.edit({
-        embeds: [buildLobbyEmbed(table, statusText)],
-        components: [buildJoinRow(table.threadId, disableJoin || table.state === "playing")],
-      });
-    } catch (error) {
-      console.error("Không cập nhật được lobby blackjack:", error);
+      if (table.stateMessageId) {
+        const msg = await thread.messages.fetch(table.stateMessageId);
+        await msg.edit({
+          embeds: [buildStateEmbed(table)],
+          components,
+        });
+        return;
+      }
+    } catch (_) {
+      // fallthrough to sending new message
     }
+    await postStateMessage(table, components);
   };
 
-  const clearCountdown = (table) => {
-    if (table.countdownTimeout) {
-      clearTimeout(table.countdownTimeout);
-      table.countdownTimeout = null;
+  const buildComponents = (table) => {
+    if (table.state === "waiting" || table.state === "countdown") {
+      return [buildJoinRow(table.threadId)];
     }
-    table.countdownEndsAt = null;
+    if (table.state === "playing") {
+      return [buildActionRow(table.threadId)];
+    }
+    return [];
   };
 
-  const resetTable = async (table, thread, statusText) => {
-    clearCountdown(table);
-    table.players = [];
-    table.state = "waiting";
-    await refreshLobbyMessage(table, statusText || "Bàn mới đã sẵn sàng.");
-    if (thread) {
-      await thread.send("Đã mở ván mới, nhấn **Tham gia** để vào bàn.");
-    }
-  };
-
-  const createTable = async ({ channel, betAmount, creatorId, interaction, note }) => {
+  const ensureTable = async ({ channel, betAmount, creatorId, interaction, note }) => {
     const baseMessage = interaction
       ? await interaction.editReply({
           content: `Đang tạo bàn cược **${formatNumber(betAmount)} ${CURRENCY_NAME}**...`,
@@ -206,297 +304,337 @@ function createBlackjackService({
       threadId: thread.id,
       channelId: thread.parentId || channel?.id || null,
       betAmount,
-      creatorId,
-      anchorMessageId: baseMessage.id,
-      lobbyMessageId: null,
-      players: [],
       state: "waiting",
+      players: [],
+      deck: [],
+      dealerHand: [],
+      currentPlayerIndex: -1,
+      currentHandIndex: 0,
       countdownTimeout: null,
       countdownEndsAt: null,
+      turnTimeout: null,
+      turnInterval: null,
+      turnDeadline: null,
+      stateMessageId: null,
+      roundFinished: false,
+      lastActivity: Date.now(),
+      cleanupTimeout: null,
     };
     tables.set(thread.id, table);
+    scheduleCleanup(table);
 
-    const lobbyMessage = await thread.send({
-      embeds: [buildLobbyEmbed(table, note || "Nhấn Tham gia để vào bàn. Bắt đầu khi có ít nhất 1 người.")],
-      components: [buildJoinRow(thread.id)],
-    });
-    table.lobbyMessageId = lobbyMessage.id;
-
-    const summaryEmbed = {
-      color: 0x2ecc71,
-      title: "Đã tạo bàn Blackjack",
-      description:
-        `Thread: <#${thread.id}>\n` +
-        `Cược mỗi người: **${formatNumber(betAmount)} ${CURRENCY_NAME}**\n` +
-        "Nút tham gia nằm trong thread, ván sẽ tự khởi động sau khi có người chơi.",
-      timestamp: new Date().toISOString(),
-    };
+    await postStateMessage(table, [buildJoinRow(thread.id)]);
 
     await baseMessage.edit({
       content: "",
-      embeds: [summaryEmbed],
-      components: [],
+      embeds: [
+        {
+          color: 0x2ecc71,
+          title: "Đã tạo bàn Blackjack",
+          description:
+            `Thread: <#${thread.id}>\n` +
+            `Cược mỗi người: **${formatNumber(betAmount)} ${CURRENCY_NAME}**\n` +
+            "Nhấn Tham gia trong thread để vào bàn. Ván sẽ tự chạy khi có người.",
+        },
+      ],
     });
+
+    if (note) {
+      await thread.send(note);
+    }
 
     return table;
   };
 
-  const waitForAction = (threadId, playerId) =>
-    new Promise((resolve) => {
-      const finish = (result) => {
-        const pending = pendingActions.get(threadId);
-        if (pending && pending.resolve === finish) {
-          pendingActions.delete(threadId);
-        }
-        clearTimeout(shortTimer);
-        clearTimeout(longTimer);
-        resolve(result);
-      };
-      const shortTimer = setTimeout(() => finish("timeout"), TURN_CHOICE_MS);
-      const longTimer = setTimeout(() => finish("timeout"), TURN_TIMEOUT_MS);
-      pendingActions.set(threadId, { playerId, resolve: finish });
-    });
-
-  const playPlayerTurn = async ({ table, thread, player, hand, dealerUpCard, deck }) => {
-    let value = handValue(hand);
-    let promptMessage = await thread.send({
-      content: `<@${player.id}> đến lượt bạn (10s).`,
-      embeds: [
-        {
-          color: 0x1abc9c,
-          title: `Lượt của ${player.name}`,
-          description: `Bài của bạn: **${formatHand(hand)}**\nDealer: **${cardToString(dealerUpCard)} + [?]**`,
-          footer: { text: "Hết giờ sẽ tự động Dừng." },
-          timestamp: new Date().toISOString(),
-        },
-      ],
-      components: value >= 21 ? [buildActionRow(table.threadId, true)] : [buildActionRow(table.threadId)],
-    });
-
-    while (value < 21) {
-      const action = await waitForAction(table.threadId, player.id);
-      if (action === "hit") {
-        hand.push(drawCard(deck));
-        value = handValue(hand);
-        await promptMessage.edit({
-          content: `<@${player.id}> đã chọn Rút bài.`,
-          embeds: [
-            {
-              color: value > 21 ? 0xe74c3c : 0x1abc9c,
-              title: `Lượt của ${player.name}`,
-              description: `Bài của bạn: **${formatHand(hand)}**\nDealer: **${cardToString(dealerUpCard)} + [?]**`,
-              footer: { text: "Hết giờ sẽ tự động Dừng." },
-              timestamp: new Date().toISOString(),
-            },
-          ],
-          components: value >= 21 ? [buildActionRow(table.threadId, true)] : [buildActionRow(table.threadId)],
-        });
-        if (value >= 21) break;
-      } else {
-        await thread.send(`<@${player.id}> hết thời gian hoặc chọn Dừng.`);
-        break;
-      }
-    }
-
-    await promptMessage.edit({
-      components: [buildActionRow(table.threadId, true)],
-    });
-
-    return { player, hand: [...hand], value: handValue(hand) };
+  const startCountdown = async (table) => {
+    clearCountdownTimers(table);
+    table.state = "countdown";
+    table.countdownEndsAt = Date.now() + START_DELAY_MS;
+    table.countdownTimeout = setTimeout(() => startRound(table.threadId), START_DELAY_MS);
+    touch(table);
+    await updateStateMessage(table);
   };
 
   const startRound = async (tableId) => {
     const table = tables.get(tableId);
-    if (!table) return;
-    clearCountdown(table);
-    if (table.state === "playing") return;
-    if (table.players.length === 0) {
-      table.state = "waiting";
-      await refreshLobbyMessage(table, "Chưa có người tham gia, bàn vẫn mở.");
-      return;
-    }
-
+    if (!table || table.state === "playing") return;
+    clearCountdownTimers(table);
+    clearTurnTimers(table);
+    table.roundFinished = false;
+    table.deck = buildDeck();
+    table.dealerHand = [drawCard(table.deck), drawCard(table.deck)];
+    table.currentPlayerIndex = 0;
+    table.currentHandIndex = 0;
     table.state = "playing";
-    await refreshLobbyMessage(table, "Đang chia bài...", true);
 
-    const thread = await getThread(table.threadId);
-    if (!thread) {
-      tables.delete(tableId);
-      return;
-    }
-
-    const deck = buildDeck();
-    const dealerHand = [drawCard(deck), drawCard(deck)];
-
-    const initialPlayers = [...table.players];
+    // Deduct base bet for all players and validate balance
     const activePlayers = [];
-
     await withDatabase(async (db, persist) => {
-      let hasChange = false;
-      for (const player of initialPlayers) {
-        let user = getUser(db, player.id);
+      let changed = false;
+      for (const p of table.players) {
+        let user = getUser(db, p.id);
         if (!user) {
-          user = createUser(
-            db,
-            persist,
-            player.id,
-            player.name || `Khach`,
-            Date.now()
-          );
+          user = createUser(db, persist, p.id, p.name || "Khach", Date.now());
         }
         user = applyPassiveExpForUser(db, persist, user);
-        if (Number(user.currency || 0) < table.betAmount) {
-          await thread.send(
-            `<@${player.id}> không đủ **${formatNumber(table.betAmount)} ${CURRENCY_NAME}** cho ván này, sẽ bị bỏ qua.`
-          );
+        const current = Number(user.currency || 0);
+        if (current < table.betAmount) {
+          const thread = await getThread(table.threadId);
+          if (thread) {
+            await thread.send(`<@${p.id}> không đủ ${formatNumber(table.betAmount)} ${CURRENCY_NAME}, bỏ qua ván này.`);
+          }
           continue;
         }
-        db.run("UPDATE users SET currency = currency - ? WHERE user_id = ?", [table.betAmount, player.id]);
-        hasChange = true;
-        activePlayers.push({ ...player });
+        db.run("UPDATE users SET currency = currency - ? WHERE user_id = ?", [table.betAmount, p.id]);
+        changed = true;
+        activePlayers.push({ ...p });
       }
-      if (hasChange) {
-        persist();
-      }
+      if (changed) persist();
     });
 
-    table.players = activePlayers;
+    table.players = activePlayers.map((p) => ({
+      ...p,
+      hands: [{ cards: [drawCard(table.deck), drawCard(table.deck)], bet: table.betAmount, doubled: false, busted: false, finished: false }],
+    }));
 
-    if (activePlayers.length === 0) {
+    if (table.players.length === 0) {
       table.state = "waiting";
-      await refreshLobbyMessage(table, "Không ai đủ tiền, bàn mở lại.");
+      table.dealerHand = [];
+      await updateStateMessage(table);
+      touch(table);
       return;
     }
 
-    const playerHands = new Map();
-    for (const player of activePlayers) {
-      playerHands.set(player.id, [drawCard(deck), drawCard(deck)]);
+    await updateStateMessage(table);
+    touch(table);
+    await beginTurn(table);
+  };
+
+  const getCurrentPlayer = (table) => {
+    if (table.currentPlayerIndex < 0 || table.currentPlayerIndex >= table.players.length) return null;
+    const player = table.players[table.currentPlayerIndex];
+    if (!player) return null;
+    const hand = player.hands[table.currentHandIndex];
+    if (!hand) return null;
+    return { player, hand, handIndex: table.currentHandIndex };
+  };
+
+  const beginTurn = async (table) => {
+    clearTurnTimers(table);
+    let found = advanceToNextPlayableHand(table);
+    if (!found) {
+      await finishRound(table);
+      return;
     }
+    startTurnTimers(table);
+    await updateStateMessage(table);
+  };
 
-    await thread.send({
-      embeds: [
-        {
-          color: 0x2980b9,
-          title: "Bắt đầu ván blackjack",
-          description: `Cược mỗi người: **${formatNumber(table.betAmount)} ${CURRENCY_NAME}**`,
-          fields: [
-            { name: "Dealer", value: `${cardToString(dealerHand[0])} + [?]` },
-            {
-              name: "Người chơi",
-              value: activePlayers.map((p) => `<@${p.id}>`).join("\n"),
-            },
-          ],
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    });
-
-    const playerResults = [];
-    for (const player of activePlayers) {
-      const result = await playPlayerTurn({
-        table,
-        thread,
-        player,
-        hand: playerHands.get(player.id),
-        dealerUpCard: dealerHand[0],
-        deck,
-      });
-      playerHands.set(player.id, result.hand);
-      playerResults.push(result);
-    }
-
-    let dealerValue = handValue(dealerHand);
-    if (playerResults.some((r) => r.value <= 21)) {
-      while (dealerValue < 17) {
-        dealerHand.push(drawCard(deck));
-        dealerValue = handValue(dealerHand);
+  const advanceToNextPlayableHand = (table) => {
+    for (let pIdx = table.currentPlayerIndex; pIdx < table.players.length; pIdx++) {
+      const player = table.players[pIdx];
+      for (let hIdx = pIdx === table.currentPlayerIndex ? table.currentHandIndex : 0; hIdx < player.hands.length; hIdx++) {
+        const hand = player.hands[hIdx];
+        if (!hand.finished && !hand.busted) {
+          table.currentPlayerIndex = pIdx;
+          table.currentHandIndex = hIdx;
+          return true;
+        }
       }
     }
+    return false;
+  };
 
-    const settlements = [];
+  const handleAutoStand = async (tableId) => {
+    const table = tables.get(tableId);
+    if (!table || table.state !== "playing") return;
+    const current = getCurrentPlayer(table);
+    if (!current) return;
+    await applyAction(table, current.player.id, "stand", true);
+  };
 
+  const applyAction = async (table, userId, action, isAuto = false) => {
+    const current = getCurrentPlayer(table);
+    if (!current || current.player.id !== userId) return { error: "not_turn" };
+    const hand = current.hand;
+    touch(table);
+
+    const thread = await getThread(table.threadId);
+
+    if (action === "hit") {
+      hand.cards.push(drawCard(table.deck));
+      const value = handValue(hand);
+      if (value > 21) {
+        hand.busted = true;
+        hand.finished = true;
+        await thread?.send(`<@${userId}> rút bài và quá 21 (BUST).`);
+        await nextHand(table);
+        return { ok: true };
+      }
+      startTurnTimers(table);
+      await updateStateMessage(table);
+      return { ok: true };
+    }
+
+    if (action === "stand") {
+      hand.finished = true;
+      await thread?.send(`<@${userId}> dừng${isAuto ? " (hết giờ)" : ""}.`);
+      await nextHand(table);
+      return { ok: true };
+    }
+
+    if (action === "double") {
+      if (hand.cards.length !== 2 || hand.doubled) {
+        return { error: "invalid_double" };
+      }
+      const extraBet = hand.bet;
+      const can = await deductForPlayer(userId, extraBet);
+      if (!can) return { error: "not_enough" };
+      hand.bet += extraBet;
+      hand.doubled = true;
+      hand.cards.push(drawCard(table.deck));
+      const value = handValue(hand);
+      hand.finished = true;
+      if (value > 21) {
+        hand.busted = true;
+      }
+      await thread?.send(`<@${userId}> gấp đôi cược và nhận thêm 1 lá.`);
+      await nextHand(table);
+      return { ok: true };
+    }
+
+    if (action === "split") {
+      if (hand.cards.length !== 2 || hand.finished || hand.busted || current.player.hands.length >= 4) {
+        return { error: "invalid_split" };
+      }
+      const [c1, c2] = hand.cards;
+      const rankValue = (card) => (["J", "Q", "K"].includes(card.rank) ? "10" : card.rank);
+      if (rankValue(c1) !== rankValue(c2)) {
+        return { error: "invalid_split" };
+      }
+      const extraBet = hand.bet;
+      const can = await deductForPlayer(userId, extraBet);
+      if (!can) return { error: "not_enough" };
+      const newHands = [
+        { cards: [c1, drawCard(table.deck)], bet: hand.bet, doubled: false, busted: false, finished: false },
+        { cards: [c2, drawCard(table.deck)], bet: hand.bet, doubled: false, busted: false, finished: false },
+      ];
+      current.player.hands.splice(table.currentHandIndex, 1, ...newHands);
+      table.currentHandIndex = table.currentHandIndex;
+      await thread?.send(`<@${userId}> chia bài thành 2 hand.`);
+      startTurnTimers(table);
+      await updateStateMessage(table);
+      return { ok: true };
+    }
+
+    return { error: "unknown" };
+  };
+
+  const deductForPlayer = async (userId, amount) => {
+    let ok = false;
     await withDatabase(async (db, persist) => {
-      let hasChange = false;
-      for (const result of playerResults) {
-        const playerValue = result.value;
-        let outcome = "lose";
-        let payout = 0;
+      let user = getUser(db, userId);
+      if (!user) return;
+      user = applyPassiveExpForUser(db, persist, user);
+      const bal = Number(user.currency || 0);
+      if (bal < amount) return;
+      db.run("UPDATE users SET currency = currency - ? WHERE user_id = ?", [amount, userId]);
+      persist();
+      ok = true;
+    });
+    return ok;
+  };
 
-        if (playerValue > 21) {
-          outcome = "bust";
-        } else if (dealerValue > 21 || playerValue > dealerValue) {
-          outcome = "win";
-          payout = table.betAmount * 2;
-        } else if (playerValue === dealerValue) {
-          outcome = "push";
-          payout = table.betAmount;
-        }
+  const nextHand = async (table) => {
+    clearTurnTimers(table);
+    table.currentHandIndex += 1;
+    const player = table.players[table.currentPlayerIndex];
+    if (player && table.currentHandIndex >= player.hands.length) {
+      table.currentPlayerIndex += 1;
+      table.currentHandIndex = 0;
+    }
+    await beginTurn(table);
+  };
 
-        if (payout > 0) {
-          db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [payout, result.player.id]);
-          hasChange = true;
-        }
+  const finishRound = async (table) => {
+    clearTurnTimers(table);
+    table.roundFinished = true;
+    const thread = await getThread(table.threadId);
 
-        settlements.push({
-          player: result.player,
-          hand: result.hand,
-          value: playerValue,
-          outcome,
-          payout,
-        });
+    let dealerValue = handValue({ cards: table.dealerHand });
+    const anyAlive = table.players.some((p) => p.hands.some((h) => !h.busted));
+    if (anyAlive) {
+      while (dealerValue < 17) {
+        table.dealerHand.push(drawCard(table.deck));
+        dealerValue = handValue({ cards: table.dealerHand });
       }
-      if (hasChange) {
-        persist();
+    }
+
+    const resultLines = [];
+    await withDatabase(async (db, persist) => {
+      let changed = false;
+      for (const player of table.players) {
+        for (const hand of player.hands) {
+          const value = handValue(hand);
+          let outcome = "lose";
+          let payout = 0;
+          if (value > 21) {
+            outcome = "bust";
+          } else if (dealerValue > 21 || value > dealerValue) {
+            outcome = "win";
+            payout = hand.bet * 2;
+          } else if (value === dealerValue) {
+            outcome = "push";
+            payout = hand.bet;
+          }
+          if (payout > 0) {
+            db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [payout, player.id]);
+            changed = true;
+          }
+          const delta = payout - hand.bet;
+          const outcomeText =
+            outcome === "win"
+              ? `Thắng (+${formatNumber(delta)} ${CURRENCY_NAME})`
+              : outcome === "push"
+              ? `Hòa (+0)`
+              : "Thua (-)";
+          resultLines.push(
+            `<@${player.id}> - ${formatHand(hand)} -> ${outcomeText}${hand.doubled ? " (x2)" : ""}`
+          );
+        }
       }
+      if (changed) persist();
     });
 
-    const dealerText = `${formatHand(dealerHand)}${dealerValue > 21 ? " (Quá 21)" : ""}`;
-    const lines =
-      settlements.length === 0
-        ? "Không có người chơi hợp lệ."
-        : settlements
-            .map((s) => {
-              const outcomeText =
-                s.outcome === "win"
-                  ? `Thắng (+${formatNumber(s.payout - table.betAmount)} ${CURRENCY_NAME})`
-                  : s.outcome === "push"
-                    ? `Hòa (+${formatNumber(s.payout - table.betAmount)} ${CURRENCY_NAME})`
-                    : "Thua (-)";
-              return `- <@${s.player.id}>: ${formatHand(s.hand)} -> ${outcomeText}`;
-            })
-            .join("\n");
-
-    await thread.send({
+    await thread?.send({
       embeds: [
         {
           color: 0x9b59b6,
           title: "Kết quả ván blackjack",
           fields: [
-            { name: "Dealer", value: dealerText },
-            { name: "Người chơi", value: lines },
+            { name: "Dealer", value: formatHand({ cards: table.dealerHand }), inline: true },
+            { name: "Người chơi", value: resultLines.join("\n") || "Không có người chơi hợp lệ." },
           ],
           timestamp: new Date().toISOString(),
         },
       ],
     });
 
-    pendingActions.delete(tableId);
-    await resetTable(table, thread, "Đã tạo bàn mới, nhấn Tham gia để chơi tiếp.");
+    await openNewRound(table);
   };
 
-  const scheduleCountdown = async (table) => {
-    const wasCountdown = table.state === "countdown";
-    clearCountdown(table);
-    table.state = "countdown";
-    table.countdownEndsAt = Date.now() + START_DELAY_MS;
-    const thread = await getThread(table.threadId);
-    if (thread && !wasCountdown) {
-      await thread.send(
-        `Da du nguoi de bat dau, van se chay sau ${START_DELAY_MS / 1000}s. Nguoi moi tham gia se reset thoi gian.`
-      );
-    }
-    await refreshLobbyMessage(table, "Sap bat dau (~10s).");
-    table.countdownTimeout = setTimeout(() => startRound(table.threadId), START_DELAY_MS);
+  const openNewRound = async (table) => {
+    clearCountdownTimers(table);
+    clearTurnTimers(table);
+    table.state = "waiting";
+    table.players = [];
+    table.deck = [];
+    table.dealerHand = [];
+    table.currentPlayerIndex = -1;
+    table.currentHandIndex = 0;
+    table.roundFinished = false;
+    touch(table);
+    await postStateMessage(table, [buildJoinRow(table.threadId)]);
   };
 
   const handleJoin = async (interaction, db, persist, threadId) => {
@@ -505,12 +643,10 @@ function createBlackjackService({
       await interaction.reply({ content: "Bàn không còn tồn tại.", ephemeral: true });
       return true;
     }
-
     if (table.state === "playing") {
       await interaction.reply({ content: "Bàn đang chơi, đợi ván tiếp theo.", ephemeral: true });
       return true;
     }
-
     const thread = await getThread(table.threadId);
     if (!thread) {
       await interaction.reply({ content: "Không tìm thấy thread của bàn.", ephemeral: true });
@@ -537,20 +673,17 @@ function createBlackjackService({
     table.players.push({
       id: user.user_id,
       name: user.base_name || getBaseNameFromMember(member),
+      hands: [],
     });
-
+    touch(table);
     await interaction.reply({
       content: `Đã tham gia bàn cược **${formatNumber(table.betAmount)} ${CURRENCY_NAME}**.`,
       ephemeral: true,
     });
-
     if (table.state === "countdown") {
       await thread.send("Có người mới tham gia, reset đếm ngược 10s.");
     }
-
-    await refreshLobbyMessage(table, "Đang chờ bắt đầu, sẽ auto start sau 10s khi có người.");
-    await scheduleCountdown(table);
-
+    await startCountdown(table);
     return true;
   };
 
@@ -567,13 +700,11 @@ function createBlackjackService({
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
-
     let user = getUser(db, member.id);
     if (!user) {
       user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
     }
     user = applyPassiveExpForUser(db, persist, user);
-
     if (Number(user.currency || 0) < betAmount) {
       await interaction.reply({ content: TEXT.notEnoughCurrency, ephemeral: true });
       return;
@@ -583,7 +714,7 @@ function createBlackjackService({
       await interaction.deferReply({ ephemeral: false });
     }
 
-    const table = await createTable({
+    const table = await ensureTable({
       channel: interaction.channel,
       betAmount,
       creatorId: interaction.user.id,
@@ -598,16 +729,25 @@ function createBlackjackService({
   };
 
   const handleActionButton = async (interaction, action, threadId) => {
-    const pending = pendingActions.get(threadId);
-    if (!pending) {
+    const table = tables.get(threadId);
+    if (!table || table.state !== "playing") {
+      await interaction.reply({ content: "Bàn không sẵn sàng hoặc chưa tới lượt.", ephemeral: true });
+      return true;
+    }
+    const current = getCurrentPlayer(table);
+    if (!current || current.player.id !== interaction.user.id) {
       await interaction.reply({ content: "Chưa tới lượt bạn.", ephemeral: true });
       return true;
     }
-    if (pending.playerId !== interaction.user.id) {
-      await interaction.reply({ content: "Chưa tới lượt bạn.", ephemeral: true });
+    const result = await applyAction(table, interaction.user.id, action, false);
+    if (result.error === "not_enough") {
+      await interaction.reply({ content: TEXT.notEnoughCurrency, ephemeral: true });
       return true;
     }
-    pending.resolve(action);
+    if (result.error) {
+      await interaction.reply({ content: "Hành động không hợp lệ lúc này.", ephemeral: true });
+      return true;
+    }
     await interaction.deferUpdate();
     return true;
   };
@@ -636,7 +776,7 @@ function createBlackjackService({
       const baseMessage = await channel.send({
         content: `Tự động mở bàn blackjack cược **${formatNumber(defaultBet)} ${CURRENCY_NAME}**.`,
       });
-      const table = await createTable({
+      await ensureTable({
         channel,
         betAmount: defaultBet,
         creatorId: "auto",
@@ -645,7 +785,6 @@ function createBlackjackService({
         },
         note: "Bàn tự khởi động khi bot online.",
       });
-      await channel.send(`Đã mở bàn blackjack mặc định tại <#${table.threadId}>.`);
     } catch (error) {
       console.error("Không thể tự động mở bàn blackjack:", error);
     }
