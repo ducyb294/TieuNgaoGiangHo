@@ -97,25 +97,42 @@ function createBlackjackService({
         .setDisabled(disabled)
     );
 
-  const buildActionRow = (threadId) =>
-    new ActionRowBuilder().addComponents(
+  const rankValue = (card) => (["J", "Q", "K"].includes(card.rank) ? "10" : card.rank);
+
+  const buildActionRow = (table) => {
+    const current = getCurrentPlayer(table);
+    const threadId = table.threadId;
+    const canAct = table.state === "playing" && current && !current.hand.finished && !current.hand.busted;
+    const canDouble = canAct && current.hand.cards.length === 2 && !current.hand.doubled;
+    const canSplit =
+      canAct &&
+      current.hand.cards.length === 2 &&
+      rankValue(current.hand.cards[0]) === rankValue(current.hand.cards[1]) &&
+      current.player.hands.length < 4;
+
+    return new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`bj_action:hit:${threadId}`)
         .setLabel("Rút bài")
-        .setStyle(ButtonStyle.Primary),
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(!canAct),
       new ButtonBuilder()
         .setCustomId(`bj_action:stand:${threadId}`)
         .setLabel("Dừng")
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(!canAct),
       new ButtonBuilder()
         .setCustomId(`bj_action:double:${threadId}`)
         .setLabel("Gấp đôi")
-        .setStyle(ButtonStyle.Success),
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(!canDouble),
       new ButtonBuilder()
         .setCustomId(`bj_action:split:${threadId}`)
         .setLabel("Chia")
         .setStyle(ButtonStyle.Danger)
+        .setDisabled(!canSplit)
     );
+  };
 
   const touch = (table) => {
     table.lastActivity = Date.now();
@@ -124,7 +141,9 @@ function createBlackjackService({
 
   const clearCountdownTimers = (table) => {
     if (table.countdownTimeout) clearTimeout(table.countdownTimeout);
+    if (table.countdownInterval) clearInterval(table.countdownInterval);
     table.countdownTimeout = null;
+    table.countdownInterval = null;
     table.countdownEndsAt = null;
   };
 
@@ -189,28 +208,26 @@ function createBlackjackService({
         ? "Chưa có người chơi."
         : table.players
             .map((p, pIdx) => {
+              const isCurrentPlayer = isPlaying && currentPlayer && currentPlayer.player.id === p.id;
+              const arrow = isCurrentPlayer ? "-> " : "";
               const handsText =
                 p.hands && p.hands.length > 0
                   ? p.hands
                       .map((h, hIdx) => {
-                        const value = handValue(h);
                         const status = h.busted
                           ? "BUST"
                           : h.finished
                           ? "Đứng"
                           : "Đang chơi";
-                        const arrow =
-                          isPlaying && currentPlayer && currentPlayer.player.id === p.id && currentPlayer.handIndex === hIdx
-                            ? "➡️ "
-                            : "";
-                        return `${arrow}Hand ${hIdx + 1}: ${formatHand(h)} [${status}${h.doubled ? ", x2" : ""}]`;
+                        const handMarker =
+                          isCurrentPlayer && currentPlayer.handIndex === hIdx ? " (dang choi)" : "";
+                        return `Hand ${hIdx + 1}${handMarker}: ${formatHand(h)} [${status}${h.doubled ? ", x2" : ""}]`;
                       })
                       .join(" | ")
                   : "Chưa chia.";
-              return `${pIdx + 1}. <@${p.id}> - ${handsText}`;
+              return `${arrow}${pIdx + 1}. <@${p.id}> - ${handsText}`;
             })
             .join("\n");
-
     const description =
       table.state === "waiting"
         ? "Nhấn Tham gia để vào bàn. Khi có người sẽ đếm ngược 10s."
@@ -279,7 +296,7 @@ function createBlackjackService({
       return [buildJoinRow(table.threadId)];
     }
     if (table.state === "playing") {
-      return [buildActionRow(table.threadId)];
+      return [buildActionRow(table)];
     }
     return [];
   };
@@ -312,6 +329,7 @@ function createBlackjackService({
       currentHandIndex: 0,
       countdownTimeout: null,
       countdownEndsAt: null,
+      countdownInterval: null,
       turnTimeout: null,
       turnInterval: null,
       turnDeadline: null,
@@ -351,6 +369,7 @@ function createBlackjackService({
     table.state = "countdown";
     table.countdownEndsAt = Date.now() + START_DELAY_MS;
     table.countdownTimeout = setTimeout(() => startRound(table.threadId), START_DELAY_MS);
+    table.countdownInterval = setInterval(() => updateStateMessage(table), 1000);
     touch(table);
     await updateStateMessage(table);
   };
@@ -467,7 +486,6 @@ function createBlackjackService({
       if (value > 21) {
         hand.busted = true;
         hand.finished = true;
-        await thread?.send(`<@${userId}> rút bài và quá 21 (BUST).`);
         await nextHand(table);
         return { ok: true };
       }
@@ -478,7 +496,6 @@ function createBlackjackService({
 
     if (action === "stand") {
       hand.finished = true;
-      await thread?.send(`<@${userId}> dừng${isAuto ? " (hết giờ)" : ""}.`);
       await nextHand(table);
       return { ok: true };
     }
@@ -498,7 +515,6 @@ function createBlackjackService({
       if (value > 21) {
         hand.busted = true;
       }
-      await thread?.send(`<@${userId}> gấp đôi cược và nhận thêm 1 lá.`);
       await nextHand(table);
       return { ok: true };
     }
@@ -508,7 +524,6 @@ function createBlackjackService({
         return { error: "invalid_split" };
       }
       const [c1, c2] = hand.cards;
-      const rankValue = (card) => (["J", "Q", "K"].includes(card.rank) ? "10" : card.rank);
       if (rankValue(c1) !== rankValue(c2)) {
         return { error: "invalid_split" };
       }
@@ -521,7 +536,6 @@ function createBlackjackService({
       ];
       current.player.hands.splice(table.currentHandIndex, 1, ...newHands);
       table.currentHandIndex = table.currentHandIndex;
-      await thread?.send(`<@${userId}> chia bài thành 2 hand.`);
       startTurnTimers(table);
       await updateStateMessage(table);
       return { ok: true };
