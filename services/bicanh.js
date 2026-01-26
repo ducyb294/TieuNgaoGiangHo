@@ -263,6 +263,8 @@ function createBicanhService({
 
     const logText = result.rounds.map((l, idx) => `${idx + 1}. ${l}`).join("\n");
 
+    const realHaveTurn = haveTurn - 1;
+    
     await interaction.reply({
       embeds: [
         {
@@ -272,7 +274,7 @@ function createBicanhService({
             `${playerWin ? "✅ Bạn đã thắng!" : "❌ Bạn thất bại."}\n` +
             (playerWin ? `Hầm ngục lên level **${newLevel}**.` : "") +
             `\n\nLog (${result.totalRounds} hiệp):\n${logText}`,
-          footer: { text: `Lượt còn lại: ${haveTurn}/${BICANH_DAILY_CHALLENGES}` },
+          footer: { text: `Lượt còn lại: ${realHaveTurn}/${BICANH_DAILY_CHALLENGES}` },
           timestamp: new Date(),
         },
       ],
