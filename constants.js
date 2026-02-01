@@ -55,7 +55,7 @@ const TEXT = {
   bicanhChallengeReset: "Lượt sẽ được đặt lại lúc 00:00 (GMT+7).",
 };
 
-const MAX_STAMINA = 10;
+const MAX_STAMINA = 1000;
 const STAMINA_INTERVAL_MS = 60 * 60 * 1000;
 const CHANLE_PAYOUT_RATE = 1.95;
 const BAUCUA_COUNTDOWN_MS = 2 * 60 * 1000;

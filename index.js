@@ -740,9 +740,9 @@ async function handleMining(interaction, db, persist) {
                 color: 0x8b5cf6,
                 title: "⛏️ Đào mỏ",
                 description:
-                    `Đã đào ${available} lượt và nhận **${formatNumber(total)} ${CURRENCY_NAME}**.\n` +
+                    `Đã đào **${available}** lượt và nhận **${formatNumber(total)} ${CURRENCY_NAME}**.\n` +
                     (lines ? `\n${lines}` : ""),
-                footer: {text: `/daomo • Thể lực: 0/${MAX_STAMINA}`},
+                footer: {text: `/daomo`},
                 timestamp: new Date()
             }
         ]
