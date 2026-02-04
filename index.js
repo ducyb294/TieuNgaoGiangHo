@@ -57,6 +57,7 @@ const ERROR_LOG_CHANNEL_ID = process.env.ERROR_LOG_CHANNEL_ID;
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 const BLACKJACK_CHANNEL_ID = process.env.BLACKJACK_CHANNEL_ID;
 const BLACKJACK_DEFAULT_BET = Number(process.env.BLACKJACK_DEFAULT_BET || 0);
+const LEADERBOARD_REFRESH_MS = 5 * 60 * 1000;
 
 let clientRef = null;
 let bicanhService = null;
@@ -205,6 +206,9 @@ async function withDatabase(callback) {
         casinoService.init();
         blackjackService.init();
 
+        await ensureLeaderboardMessages(client);
+        startLeaderboardRefreshLoop(client);
+
         // Thông báo bot đã khởi động vào kênh admin
         if (ADMIN_CHANNEL_ID) {
             try {
@@ -268,14 +272,6 @@ async function withDatabase(callback) {
 
                     if (interaction.commandName === "settaisanchusongbai") {
                         await casinoService.handleSetMinBalance(interaction, db, persist);
-                    }
-
-                    if (interaction.commandName === "topdaigia") {
-                        await handleTopDaiGia(interaction, db, persist);
-                    }
-
-                    if (interaction.commandName === "topcaothu") {
-                        await handleTopCaoThu(interaction, db, persist);
                     }
 
                     if (interaction.commandName === "taisan") {
@@ -483,6 +479,176 @@ function applyPassiveExpTickAll(db, persist) {
     });
     db.run("COMMIT");
     persist();
+}
+
+function getLeaderboardState(db) {
+    const stmt = db.prepare(
+        "SELECT channel_id, daigia_message_id, caothu_message_id FROM leaderboard_messages WHERE id = 1"
+    );
+    const hasRow = stmt.step();
+    const row = hasRow ? stmt.getAsObject() : null;
+    stmt.free();
+    return row;
+}
+
+function saveLeaderboardState(db, persist, channelId, daiGiaMessageId, caoThuMessageId) {
+    db.run(
+        `INSERT INTO leaderboard_messages (id, channel_id, daigia_message_id, caothu_message_id)
+         VALUES (1, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           channel_id = excluded.channel_id,
+           daigia_message_id = excluded.daigia_message_id,
+           caothu_message_id = excluded.caothu_message_id`,
+        [channelId, daiGiaMessageId, caoThuMessageId]
+    );
+    persist();
+}
+
+function buildTopDaiGiaEmbed(db) {
+    const stmt = db.prepare(
+        "SELECT user_id, base_name, currency FROM users ORDER BY currency DESC LIMIT 10"
+    );
+    const rows = [];
+    while (stmt.step()) {
+        const row = stmt.getAsObject();
+        rows.push({
+            user_id: row.user_id,
+            base_name: row.base_name,
+            currency: Number(row.currency || 0),
+        });
+    }
+    stmt.free();
+
+    const lines = rows.map((row, idx) =>
+        `${idx + 1}. <@${row.user_id}> | **${formatNumber(row.currency)} ${CURRENCY_NAME}**`
+    );
+
+    return {
+        color: 0xf1c40f,
+        title: "Top Đại Gia",
+        description: lines.length ? lines.join("\n") : "Chưa có dữ liệu.",
+        timestamp: new Date(),
+    };
+}
+
+function buildTopCaoThuEmbed(db) {
+    const stmt = db.prepare(
+        "SELECT user_id, base_name, level, exp FROM users ORDER BY level DESC, exp DESC LIMIT 10"
+    );
+    const rows = [];
+    while (stmt.step()) {
+        const row = stmt.getAsObject();
+        rows.push({
+            user_id: row.user_id,
+            base_name: row.base_name,
+            level: Number(row.level || 0),
+            exp: Number(row.exp || 0),
+        });
+    }
+    stmt.free();
+
+    const lines = rows.map((row, idx) =>
+        `${idx + 1}. <@${row.user_id}> | Exp ${formatNumber(row.exp)}`
+    );
+
+    return {
+        color: 0x3498db,
+        title: "Top Cao Thủ",
+        description: lines.length ? lines.join("\n") : "Chưa có dữ liệu.",
+        timestamp: new Date(),
+    };
+}
+
+async function ensureLeaderboardMessages(client) {
+    if (!LEADERBOARD_CHANNEL_ID) return;
+
+    await withDatabase(async (db, persist) => {
+        const channel = await client.channels.fetch(LEADERBOARD_CHANNEL_ID);
+        if (!channel) return;
+
+        const state = getLeaderboardState(db);
+        let daiGiaMessage = null;
+        let caoThuMessage = null;
+
+        if (state?.daigia_message_id) {
+            try {
+                daiGiaMessage = await channel.messages.fetch(state.daigia_message_id);
+            } catch (_) {}
+        }
+
+        if (state?.caothu_message_id) {
+            try {
+                caoThuMessage = await channel.messages.fetch(state.caothu_message_id);
+            } catch (_) {}
+        }
+
+        applyPassiveExpTickAll(db, persist);
+
+        if (!daiGiaMessage) {
+            daiGiaMessage = await channel.send({ embeds: [buildTopDaiGiaEmbed(db)] });
+        }
+
+        if (!caoThuMessage) {
+            caoThuMessage = await channel.send({ embeds: [buildTopCaoThuEmbed(db)] });
+        }
+
+        saveLeaderboardState(db, persist, channel.id, daiGiaMessage.id, caoThuMessage.id);
+
+        await daiGiaMessage.edit({ embeds: [buildTopDaiGiaEmbed(db)] });
+        await caoThuMessage.edit({ embeds: [buildTopCaoThuEmbed(db)] });
+    });
+}
+
+function startLeaderboardRefreshLoop(client) {
+    if (!LEADERBOARD_CHANNEL_ID) return;
+
+    setInterval(() => {
+        refreshLeaderboardMessages(client).catch((error) => {
+            console.error("Leaderboard refresh error:", error);
+            sendErrorLog("Leaderboard refresh error", error);
+        });
+    }, LEADERBOARD_REFRESH_MS);
+}
+
+async function refreshLeaderboardMessages(client) {
+    if (!LEADERBOARD_CHANNEL_ID) return;
+
+    await withDatabase(async (db, persist) => {
+        const channel = await client.channels.fetch(LEADERBOARD_CHANNEL_ID);
+        if (!channel) return;
+
+        const state = getLeaderboardState(db);
+        let daiGiaMessage = null;
+        let caoThuMessage = null;
+
+        if (state?.daigia_message_id) {
+            try {
+                daiGiaMessage = await channel.messages.fetch(state.daigia_message_id);
+            } catch (_) {}
+        }
+
+        if (state?.caothu_message_id) {
+            try {
+                caoThuMessage = await channel.messages.fetch(state.caothu_message_id);
+            } catch (_) {}
+        }
+
+        applyPassiveExpTickAll(db, persist);
+
+        if (!daiGiaMessage) {
+            daiGiaMessage = await channel.send({ embeds: [buildTopDaiGiaEmbed(db)] });
+        } else {
+            await daiGiaMessage.edit({ embeds: [buildTopDaiGiaEmbed(db)] });
+        }
+
+        if (!caoThuMessage) {
+            caoThuMessage = await channel.send({ embeds: [buildTopCaoThuEmbed(db)] });
+        } else {
+            await caoThuMessage.edit({ embeds: [buildTopCaoThuEmbed(db)] });
+        }
+
+        saveLeaderboardState(db, persist, channel.id, daiGiaMessage.id, caoThuMessage.id);
+    });
 }
 
 async function handleRename(interaction, db, persist) {

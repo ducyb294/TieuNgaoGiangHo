@@ -174,12 +174,6 @@ const commands = [
     .setName("backup")
     .setDescription("Backup"),
   new SlashCommandBuilder()
-    .setName("topdaigia")
-    .setDescription("Top 10 đại gia Ngân Lượng"),
-  new SlashCommandBuilder()
-    .setName("topcaothu")
-    .setDescription("Top 10 cao thủ (level, exp)"),
-  new SlashCommandBuilder()
     .setName("update")
     .setDescription("Update (Admin only)"),
   new SlashCommandBuilder()

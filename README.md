@@ -54,11 +54,6 @@ Quy tắc:
 - `/baucua`: đặt cược, đếm ngược 2 phút, khóa 15 giây cuối, tự động xoay ván.
 - Có thống kê tần suất xuất hiện từng linh vật.
 
-## 🏆 Bảng xếp hạng
-
-- `/topdaigia` – Top 10 Ngân Lượng.
-- `/topcaothu` – Top 10 Level (tie theo EXP).
-
 ## 🧭 Bí Cảnh
 
 - Mỗi người có level Bí Cảnh riêng.

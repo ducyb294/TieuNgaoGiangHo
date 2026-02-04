@@ -177,6 +177,15 @@ function initializeSchema(db) {
     );
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS leaderboard_messages (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      channel_id TEXT NOT NULL,
+      daigia_message_id TEXT NOT NULL,
+      caothu_message_id TEXT NOT NULL
+    );
+  `);
+
   const columns = db.prepare(`PRAGMA table_info(users)`);
   const existing = [];
   while (columns.step()) {
