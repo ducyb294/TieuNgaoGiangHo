@@ -8,6 +8,9 @@ const {
     GatewayIntentBits,
     Partials,
     ChannelType,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
 } = require("discord.js");
 const { buildInfoCard } = require("./services/infoCard");
 const { buildChanLeChartImage } = require("./services/chanLeChart");
@@ -58,6 +61,39 @@ const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 const BLACKJACK_CHANNEL_ID = process.env.BLACKJACK_CHANNEL_ID;
 const BLACKJACK_DEFAULT_BET = Number(process.env.BLACKJACK_DEFAULT_BET || 0);
 const LEADERBOARD_REFRESH_MS = 5 * 60 * 1000;
+const MOUNT_ITEMS_PATH = path.join(__dirname, "data", "items");
+const MOUNT_PAGE_SIZE = 10;
+const MOUNT_MAX_LEVEL = 100;
+const MOUNT_EXP_PER_LEVEL = 1000;
+const MOUNT_BREAK_COST = 100000000;
+const MOUNT_BREAK_SUCCESS_RATE = 0.2;
+
+const MOUNT_STAT_POOL = [
+    { id: "attack", value: 1000, type: "flat", label: STAT_LABELS.attack },
+    { id: "defense", value: 1000, type: "flat", label: STAT_LABELS.defense },
+    { id: "health", value: 1000, type: "flat", label: STAT_LABELS.health },
+    { id: "critRate", value: 1, type: "percent", label: STAT_LABELS.critRate },
+    { id: "accuracy", value: 1, type: "percent", label: STAT_LABELS.accuracy },
+    { id: "dodge", value: 1, type: "percent", label: STAT_LABELS.dodge },
+    {
+        id: "critDamageResistance",
+        value: 1,
+        type: "percent",
+        label: STAT_LABELS.critDamageResistance,
+    },
+    {
+        id: "armorPenetration",
+        value: 1,
+        type: "percent",
+        label: STAT_LABELS.armorPenetration,
+    },
+    {
+        id: "armorResistance",
+        value: 1,
+        type: "percent",
+        label: STAT_LABELS.armorResistance,
+    },
+];
 
 let clientRef = null;
 let bicanhService = null;
@@ -100,6 +136,189 @@ async function withDatabase(callback) {
     } finally {
         close();
     }
+}
+
+function loadMountDefinitions() {
+    if (!fs.existsSync(MOUNT_ITEMS_PATH)) return {};
+    const content = fs.readFileSync(MOUNT_ITEMS_PATH, "utf8");
+    const lines = content.split(/\r?\n/);
+    const map = {};
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const parts = trimmed.split(/[\t|,]+/).map((p) => p.trim()).filter(Boolean);
+        if (parts.length < 2) continue;
+        const id = Number(parts[0]);
+        if (!Number.isFinite(id)) continue;
+        const name = parts.slice(1).join(" ").trim();
+        if (!name) continue;
+        map[id] = {id, name};
+    }
+    return map;
+}
+
+function getMountName(mountId) {
+    const defs = loadMountDefinitions();
+    return defs[mountId]?.name || `Thú cưỡi #${mountId}`;
+}
+
+function parseMountStats(raw) {
+    if (!raw) return [];
+    try {
+        const data = JSON.parse(raw);
+        return Array.isArray(data) ? data : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function rollMountBaseStats() {
+    const pool = MOUNT_STAT_POOL.map((stat) => ({...stat}));
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, 4).map((stat) => ({
+        id: stat.id,
+        value: stat.value,
+        type: stat.type,
+    }));
+}
+
+function getUserMounts(db, userId) {
+    const stmt = db.prepare(
+        `SELECT user_id, mount_id, stats_unlocked, base_stats, level, exp, star, equipped
+         FROM user_mounts
+         WHERE user_id = ?
+         ORDER BY mount_id ASC`
+    );
+    stmt.bind([userId]);
+    const rows = [];
+    while (stmt.step()) {
+        rows.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return rows;
+}
+
+function getUserMount(db, userId, mountId) {
+    const stmt = db.prepare(
+        `SELECT user_id, mount_id, stats_unlocked, base_stats, level, exp, star, equipped
+         FROM user_mounts
+         WHERE user_id = ? AND mount_id = ?`
+    );
+    stmt.bind([userId, mountId]);
+    const hasRow = stmt.step();
+    const row = hasRow ? stmt.getAsObject() : null;
+    stmt.free();
+    return row;
+}
+
+function getEquippedMount(db, userId) {
+    const stmt = db.prepare(
+        `SELECT user_id, mount_id, stats_unlocked, base_stats, level, exp, star, equipped
+         FROM user_mounts
+         WHERE user_id = ? AND equipped = 1
+         LIMIT 1`
+    );
+    stmt.bind([userId]);
+    const hasRow = stmt.step();
+    const row = hasRow ? stmt.getAsObject() : null;
+    stmt.free();
+    return row;
+}
+
+function setEquippedMount(db, persist, userId, mountId) {
+    db.run("BEGIN");
+    db.run("UPDATE user_mounts SET equipped = 0 WHERE user_id = ?", [userId]);
+    db.run(
+        "UPDATE user_mounts SET equipped = 1 WHERE user_id = ? AND mount_id = ?",
+        [userId, mountId]
+    );
+    db.run("COMMIT");
+    persist();
+}
+
+function buildMountStatLines(mount) {
+    const baseStats = parseMountStats(mount.base_stats);
+    if (!baseStats.length) return ["Chưa mở chỉ số."];
+    const level = Math.max(1, Number(mount.level || 1));
+    const star = Math.max(1, Number(mount.star || 1));
+    return baseStats.map((stat) => {
+        const def = MOUNT_STAT_POOL.find((s) => s.id === stat.id);
+        const label = def?.label || stat.id;
+        const statType = stat.type || def?.type;
+        const total = Number(stat.value || 0) * star * level;
+        const suffix = statType === "percent" ? "%" : "";
+        return `• ${label}: +${formatNumber(total)}${suffix}`;
+    });
+}
+
+function buildMountInfoEmbed(mount, title = "Thông tin thú cưỡi") {
+    const name = getMountName(Number(mount.mount_id));
+    const level = Math.max(1, Number(mount.level || 1));
+    const exp = Math.max(0, Number(mount.exp || 0));
+    const star = Math.max(1, Number(mount.star || 1));
+    const lines = buildMountStatLines(mount);
+    const expLabel =
+        level >= MOUNT_MAX_LEVEL
+            ? "Đã đạt level 100"
+            : `${formatNumber(exp)}/${formatNumber(MOUNT_EXP_PER_LEVEL)} exp`;
+
+    return {
+        color: 0x8e44ad,
+        title: `🐎 ${title}`,
+        description: `**${name}**\nLevel ${level} • ★${star}\n${expLabel}`,
+        fields: [
+            {
+                name: "Chỉ số",
+                value: lines.join("\n"),
+            },
+        ],
+        timestamp: new Date(),
+    };
+}
+
+function buildMountListEmbed(userId, mounts, page) {
+    const total = mounts.length;
+    const totalPages = Math.max(1, Math.ceil(total / MOUNT_PAGE_SIZE));
+    const safePage = Math.min(Math.max(0, page), totalPages - 1);
+    const start = safePage * MOUNT_PAGE_SIZE;
+    const slice = mounts.slice(start, start + MOUNT_PAGE_SIZE);
+    const lines = slice.map((mount) => {
+        const name = getMountName(Number(mount.mount_id));
+        const level = Math.max(1, Number(mount.level || 1));
+        const star = Math.max(1, Number(mount.star || 1));
+        const equipMark = Number(mount.equipped || 0) ? " ✅" : "";
+        return `• [ID ${mount.mount_id}] ${name}${equipMark} — Lv ${level} • ★${star}`;
+    });
+
+    const embed = {
+        color: 0x9b59b6,
+        title: "🐎 Danh sách thú cưỡi",
+        description: lines.length ? lines.join("\n") : "Chưa có thú cưỡi nào.",
+        footer: {text: `Trang ${safePage + 1}/${totalPages}`},
+        timestamp: new Date(),
+    };
+
+    const components = [];
+    if (totalPages > 1) {
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`mounts:prev:${userId}:${safePage}`)
+                .setLabel("Trang trước")
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safePage === 0),
+            new ButtonBuilder()
+                .setCustomId(`mounts:next:${userId}:${safePage}`)
+                .setLabel("Trang sau")
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safePage >= totalPages - 1)
+        );
+        components.push(row);
+    }
+
+    return {embed, components};
 }
 
 (async () => {
@@ -234,6 +453,18 @@ async function withDatabase(callback) {
                         await handleInfo(interaction, db, persist);
                     }
 
+                    if (interaction.commandName === "thucuoi") {
+                        await handleThuCuoi(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "sudungthucuoi") {
+                        await handleSuDungThuCuoi(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "dotphathucuoi") {
+                        await handleDotPhaThuCuoi(interaction, db, persist);
+                    }
+
                     if (interaction.commandName === "daomo") {
                         await handleMining(interaction, db, persist);
                     }
@@ -320,6 +551,9 @@ async function withDatabase(callback) {
                 } else if (interaction.isButton()) {
                     const lixiHandled = await lixiService.handleButton(interaction, db, persist);
                     if (lixiHandled) return;
+
+                    const mountHandled = await handleMountListButton(interaction, db, persist);
+                    if (mountHandled) return;
 
                     const handled = await shopService.handleButton(interaction, db, persist);
                     if (handled) return;
@@ -739,10 +973,210 @@ async function handleInfo(interaction, db, persist) {
         currency: user.currency,
     });
 
+    const equippedMount = getEquippedMount(db, user.user_id);
+    const embeds = equippedMount ? [buildMountInfoEmbed(equippedMount, "Thú cưỡi đang dùng")] : [];
+
     await interaction.editReply({
         files: [{attachment: buffer, name: fileName}],
+        embeds,
         ephemeral: false,
     });
+}
+
+async function handleThuCuoi(interaction, db, persist) {
+    if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.infoChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    const mountId = interaction.options.getInteger("id");
+    if (mountId) {
+        const mount = getUserMount(db, user.user_id, mountId);
+        if (!mount) {
+            await interaction.reply({content: "Bạn chưa có thú cưỡi này.", ephemeral: true});
+            return;
+        }
+        await interaction.reply({
+            embeds: [buildMountInfoEmbed(mount)],
+            ephemeral: false,
+        });
+        return;
+    }
+
+    const mounts = getUserMounts(db, user.user_id);
+    const {embed, components} = buildMountListEmbed(user.user_id, mounts, 0);
+    await interaction.reply({
+        embeds: [embed],
+        components,
+        ephemeral: false,
+    });
+}
+
+async function handleSuDungThuCuoi(interaction, db, persist) {
+    if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.infoChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const mountId = Number(interaction.options.getInteger("id", true));
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    const mount = getUserMount(db, user.user_id, mountId);
+    if (!mount) {
+        await interaction.reply({content: "Bạn chưa có thú cưỡi này.", ephemeral: true});
+        return;
+    }
+
+    const shouldUnlock = Number(mount.stats_unlocked || 0) === 0;
+    const baseStats = shouldUnlock ? rollMountBaseStats() : null;
+
+    db.run("BEGIN");
+    db.run("UPDATE user_mounts SET equipped = 0 WHERE user_id = ?", [user.user_id]);
+    if (shouldUnlock) {
+        db.run(
+            "UPDATE user_mounts SET stats_unlocked = 1, base_stats = ? WHERE user_id = ? AND mount_id = ?",
+            [JSON.stringify(baseStats), user.user_id, mountId]
+        );
+    }
+    db.run(
+        "UPDATE user_mounts SET equipped = 1 WHERE user_id = ? AND mount_id = ?",
+        [user.user_id, mountId]
+    );
+    db.run("COMMIT");
+    persist();
+
+    const refreshed = getUserMount(db, user.user_id, mountId);
+
+    if (shouldUnlock) {
+        await interaction.reply({
+            embeds: [buildMountInfoEmbed(refreshed, "Đã mở chỉ số thú cưỡi")],
+            ephemeral: false,
+        });
+        return;
+    }
+
+    const name = getMountName(mountId);
+    await interaction.reply({
+        content: `Đã đeo thú cưỡi **${name}**.`,
+        ephemeral: false,
+    });
+}
+
+async function handleDotPhaThuCuoi(interaction, db, persist) {
+    if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.infoChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    const mount = getEquippedMount(db, user.user_id);
+    if (!mount) {
+        await interaction.reply({content: "Bạn chưa đeo thú cưỡi nào.", ephemeral: true});
+        return;
+    }
+
+    if (Number(mount.stats_unlocked || 0) === 0) {
+        await interaction.reply({
+            content: "Thú cưỡi chưa mở chỉ số. Hãy dùng /sudungthucuoi trước.",
+            ephemeral: true,
+        });
+        return;
+    }
+
+    const level = Math.max(1, Number(mount.level || 1));
+    if (level < MOUNT_MAX_LEVEL) {
+        await interaction.reply({
+            content: `Thú cưỡi chưa đạt level 100 (hiện tại: ${level}).`,
+            ephemeral: true,
+        });
+        return;
+    }
+
+    if (Number(user.currency || 0) < MOUNT_BREAK_COST) {
+        await interaction.reply({
+            content: `${TEXT.notEnoughCurrency} Cần ${formatNumber(MOUNT_BREAK_COST)} ${CURRENCY_NAME}.`,
+            ephemeral: true,
+        });
+        return;
+    }
+
+    const success = Math.random() < MOUNT_BREAK_SUCCESS_RATE;
+    const nextStar = Math.max(1, Number(mount.star || 1)) + (success ? 1 : 0);
+
+    db.run("BEGIN");
+    db.run("UPDATE users SET currency = currency - ? WHERE user_id = ?", [
+        MOUNT_BREAK_COST,
+        user.user_id,
+    ]);
+    if (success) {
+        db.run(
+            "UPDATE user_mounts SET star = star + 1 WHERE user_id = ? AND mount_id = ?",
+            [user.user_id, mount.mount_id]
+        );
+    }
+    db.run("COMMIT");
+    persist();
+
+    await interaction.reply({
+        embeds: [
+            {
+                color: success ? 0x2ecc71 : 0xe74c3c,
+                title: success ? "✨ Đột phá thành công!" : "💥 Đột phá thất bại",
+                description:
+                    `Chi phí: **${formatNumber(MOUNT_BREAK_COST)} ${CURRENCY_NAME}**\n` +
+                    `Thú cưỡi: **${getMountName(Number(mount.mount_id))}**\n` +
+                    `Sao hiện tại: ★${nextStar}`,
+                timestamp: new Date(),
+            },
+        ],
+        ephemeral: false,
+    });
+}
+
+async function handleMountListButton(interaction, db, persist) {
+    const customId = interaction.customId || "";
+    const [prefix, action, ownerId, pageStr] = customId.split(":");
+    if (prefix !== "mounts") return false;
+
+    if (ownerId !== interaction.user.id) {
+        await interaction.reply({content: "Bạn không thể dùng nút này.", ephemeral: true});
+        return true;
+    }
+
+    const currentPage = Number(pageStr || 0);
+    const targetPage = action === "next" ? currentPage + 1 : currentPage - 1;
+    const mounts = getUserMounts(db, ownerId);
+    const {embed, components} = buildMountListEmbed(ownerId, mounts, targetPage);
+
+    await interaction.update({
+        embeds: [embed],
+        components,
+    });
+    return true;
 }
 
 async function handleTaiSan(interaction, db, persist) {

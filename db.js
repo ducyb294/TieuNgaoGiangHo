@@ -130,6 +130,21 @@ function initializeSchema(db) {
   `);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS user_mounts (
+      user_id TEXT NOT NULL,
+      mount_id INTEGER NOT NULL,
+      stats_unlocked INTEGER NOT NULL DEFAULT 0,
+      base_stats TEXT,
+      level INTEGER NOT NULL DEFAULT 1,
+      exp INTEGER NOT NULL DEFAULT 0,
+      star INTEGER NOT NULL DEFAULT 1,
+      equipped INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, mount_id)
+    );
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS bicanh_challenges (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL,

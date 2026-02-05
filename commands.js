@@ -12,6 +12,25 @@ const commands = [
     .setName("info")
     .setDescription("Xem thông tin nhân vật"),
   new SlashCommandBuilder()
+    .setName("thucuoi")
+    .setDescription("Danh sách thú cưỡi đang có")
+    .addIntegerOption((option) =>
+      option.setName("id").setDescription("ID thú cưỡi muốn xem")
+    ),
+  new SlashCommandBuilder()
+    .setName("sudungthucuoi")
+    .setDescription("Sử dụng thú cưỡi")
+    .addIntegerOption((option) =>
+      option
+        .setName("id")
+        .setDescription("ID thú cưỡi muốn sử dụng")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
+    .setName("dotphathucuoi")
+    .setDescription("Đột phá thú cưỡi (sao)"),
+  new SlashCommandBuilder()
     .setName("daomo")
     .setDescription("Đào mỏ linh thạch (tiêu thể lực)"),
   new SlashCommandBuilder()
