@@ -50,7 +50,7 @@ function createGiftCodeService({
          currency = excluded.currency,
          mount_count = excluded.mount_count,
          active = excluded.active`,
-      ["truongquaylevel100", 50000000, 5, now]
+      ["truongquaylevel100", 50000000, 10, now]
     );
     persist();
   };
@@ -192,6 +192,10 @@ function createGiftCodeService({
             `+${formatNumber(currencyReward)} ${CURRENCY_NAME}\n` +
             `Thú cưỡi nhận được: ${grantedMounts.length}/${mountCount}`,
           fields: [
+            {
+              name: "Gift Code",
+              value: codeInput,
+            },
             {
               name: "Chi tiết thú cưỡi",
               value: mountLine,
