@@ -63,6 +63,7 @@ const BLACKJACK_CHANNEL_ID = process.env.BLACKJACK_CHANNEL_ID;
 const BLACKJACK_DEFAULT_BET = Number(process.env.BLACKJACK_DEFAULT_BET || 0);
 const LEADERBOARD_REFRESH_MS = 5 * 60 * 1000;
 const GIFT_CODE_CHANNEL_ID = process.env.GIFT_CODE_CHANNEL_ID;
+const AUTO_BACKUP_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const MOUNT_ITEMS_PATH = path.join(__dirname, "data", "items");
 const MOUNT_PAGE_SIZE = 10;
 const MOUNT_MAX_LEVEL = 100;
@@ -444,6 +445,7 @@ function buildMountListEmbed(userId, mounts, page) {
                 giftCodeService.ensureGiftCode(db, persist);
             });
         }
+        scheduleAutoBackup(client);
 
         await ensureLeaderboardMessages(client);
         startLeaderboardRefreshLoop(client);
@@ -1692,4 +1694,30 @@ function getChanLeHistory(db) {
     }
     stmt.free();
     return rows.reverse();
+}
+
+function scheduleAutoBackup(client) {
+    if (!ADMIN_CHANNEL_ID) return;
+    runAutoBackup(client);
+    setInterval(() => runAutoBackup(client), AUTO_BACKUP_INTERVAL_MS);
+}
+
+async function runAutoBackup(client) {
+    if (!ADMIN_CHANNEL_ID) return;
+    try {
+        const channel = await client.channels.fetch(ADMIN_CHANNEL_ID);
+        if (!channel) return;
+        const dbPath = process.env.DB_PATH || "./data.db";
+        const envPath = path.join(__dirname, ".env");
+        await channel.send({
+            content: "Backup tự động: data.db",
+            files: [{attachment: dbPath, name: "data.db"}],
+        });
+        await channel.send({
+            content: "Backup tự động: .env",
+            files: [{attachment: envPath, name: ".env"}],
+        });
+    } catch (error) {
+        console.error("Auto backup error:", error);
+    }
 }
