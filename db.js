@@ -145,6 +145,27 @@ function initializeSchema(db) {
   `);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS giftcodes (
+      code TEXT PRIMARY KEY,
+      currency INTEGER NOT NULL DEFAULT 0,
+      mount_count INTEGER NOT NULL DEFAULT 0,
+      max_uses INTEGER,
+      uses INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS giftcode_claims (
+      code TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      claimed_at INTEGER NOT NULL,
+      PRIMARY KEY (code, user_id)
+    );
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS bicanh_challenges (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL,

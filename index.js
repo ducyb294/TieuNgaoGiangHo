@@ -21,6 +21,7 @@ const createCasinoService = require("./services/casino");
 const createBauCuaService = require("./services/bauCua");
 const createLiXiService = require("./services/lixi");
 const createBlackjackService = require("./services/blackjack");
+const createGiftCodeService = require("./services/giftcode");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -61,6 +62,7 @@ const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 const BLACKJACK_CHANNEL_ID = process.env.BLACKJACK_CHANNEL_ID;
 const BLACKJACK_DEFAULT_BET = Number(process.env.BLACKJACK_DEFAULT_BET || 0);
 const LEADERBOARD_REFRESH_MS = 5 * 60 * 1000;
+const GIFT_CODE_CHANNEL_ID = process.env.GIFT_CODE_CHANNEL_ID;
 const MOUNT_ITEMS_PATH = path.join(__dirname, "data", "items");
 const MOUNT_PAGE_SIZE = 10;
 const MOUNT_MAX_LEVEL = 100;
@@ -102,6 +104,7 @@ let bauCuaService = null;
 let casinoService = null;
 let lixiService = null;
 let blackjackService = null;
+let giftCodeService = null;
 
 async function sendErrorLog(title, error) {
     if (!clientRef || !ERROR_LOG_CHANNEL_ID) return;
@@ -417,6 +420,18 @@ function buildMountListEmbed(userId, mounts, page) {
         clientRefGetter: () => clientRef,
     });
 
+    giftCodeService = createGiftCodeService({
+        withDatabase,
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+        TEXT,
+        GIFT_CODE_CHANNEL_ID,
+    });
+
     client.once(Events.ClientReady, async () => {
         console.log(`Ready as ${client.user.tag}`);
         clientRef = client;
@@ -424,6 +439,11 @@ function buildMountListEmbed(userId, mounts, page) {
         bauCuaService.init();
         casinoService.init();
         blackjackService.init();
+        if (giftCodeService) {
+            await withDatabase(async (db, persist) => {
+                giftCodeService.ensureGiftCode(db, persist);
+            });
+        }
 
         await ensureLeaderboardMessages(client);
         startLeaderboardRefreshLoop(client);
@@ -547,6 +567,10 @@ function buildMountListEmbed(userId, mounts, page) {
 
                     if (interaction.commandName === "uploadenv") {
                         await handleUploadEnv(interaction);
+                    }
+
+                    if (interaction.commandName === "giftcode") {
+                        await giftCodeService.handleGiftCode(interaction, db, persist);
                     }
                 } else if (interaction.isButton()) {
                     const lixiHandled = await lixiService.handleButton(interaction, db, persist);
