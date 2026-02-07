@@ -525,7 +525,16 @@ function buildMountListEmbed(userId, mounts, page) {
             try {
                 const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID);
                 if (adminChannel) {
-                    await adminChannel.send("Bot đã khởi động thành công!");
+                    const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId("admin:update")
+                            .setLabel("Update")
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                    await adminChannel.send({
+                        content: "Bot đã khởi động thành công!",
+                        components: [row],
+                    });
                 }
             } catch (error) {
                 console.error("Không thể gửi thông báo khởi động:", error);
@@ -653,6 +662,10 @@ function buildMountListEmbed(userId, mounts, page) {
                         await giftCodeService.handleGiftCode(interaction, db, persist);
                     }
                 } else if (interaction.isButton()) {
+                    if (interaction.customId === "admin:update") {
+                        await handleUpdate(interaction, db, persist);
+                        return;
+                    }
                     const lixiHandled = await lixiService.handleButton(interaction, db, persist);
                     if (lixiHandled) return;
 
