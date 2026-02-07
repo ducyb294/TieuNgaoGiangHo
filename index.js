@@ -605,6 +605,10 @@ function buildMountListEmbed(userId, mounts, page) {
                         await handleTaiSan(interaction, db, persist);
                     }
 
+                    if (interaction.commandName === "hanhtrang") {
+                        await handleHanhTrang(interaction, db, persist);
+                    }
+
                     if (interaction.commandName === "hamnguc") {
                         await bicanhService.handleBicanh(interaction, db, persist);
                     }
@@ -1394,6 +1398,37 @@ async function handleTaiSan(interaction, db, persist) {
                 title: "Tài sản",
                 description: `**${formatNumber(user.currency)} ${CURRENCY_NAME}**.`,
                 footer: {text: "/taisan"},
+                timestamp: new Date()
+            }
+        ]
+    });
+}
+
+async function handleHanhTrang(interaction, db, persist) {
+    if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.infoChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    await interaction.reply({
+        ephemeral: false,
+        embeds: [
+            {
+                color: 0x2ecc71,
+                title: "Hành trang",
+                description:
+                    `Ngân lượng: **${formatNumber(user.currency)} ${CURRENCY_NAME}**\n` +
+                    `Cỏ: **${formatNumber(user.grass || 0)}**`,
+                footer: {text: "/hanhtrang"},
                 timestamp: new Date()
             }
         ]

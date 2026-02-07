@@ -138,6 +138,9 @@ const commands = [
     .setName("taisan")
     .setDescription("Xem nhanh tài sản"),
   new SlashCommandBuilder()
+    .setName("hanhtrang")
+    .setDescription("Xem ngân lượng và cỏ hiện có"),
+  new SlashCommandBuilder()
     .setName("npc")
     .setDescription("Nhận vai Chủ Sòng Bài"),
   new SlashCommandBuilder()
