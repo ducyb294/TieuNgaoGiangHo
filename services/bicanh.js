@@ -23,6 +23,7 @@ function createBicanhService({
   const MAX_FARM_CATCHUP_TICKS = 360; // 6 hours
   const LINH_THACH_RATE = 5000; // per level per minute base
   const EXP_RATE = 1000; // exp per level per minute base
+  const GRASS_RATE = 1; // per level per minute base
 
   const getBicanhLevel = (db, userId) => {
     const stmt = db.prepare("SELECT bicanh_level FROM users WHERE user_id = ?");
@@ -61,7 +62,7 @@ function createBicanhService({
 
   const getFarmSessions = (db) => {
     const stmt = db.prepare(
-      "SELECT user_id, thread_id, message_id, last_tick, total_earned FROM farm_sessions"
+      "SELECT user_id, thread_id, message_id, last_tick, total_earned, total_grass FROM farm_sessions"
     );
     const rows = [];
     while (stmt.step()) {
@@ -100,7 +101,7 @@ function createBicanhService({
 
   const getFarmSession = (db, userId) => {
     const stmt = db.prepare(
-      "SELECT user_id, thread_id, message_id, last_tick, total_earned FROM farm_sessions WHERE user_id = ?"
+      "SELECT user_id, thread_id, message_id, last_tick, total_earned, total_grass FROM farm_sessions WHERE user_id = ?"
     );
     stmt.bind([userId]);
     const has = stmt.step();
@@ -111,19 +112,21 @@ function createBicanhService({
 
   const saveFarmSession = (db, persist, session) => {
     db.run(
-      `INSERT INTO farm_sessions (user_id, thread_id, message_id, last_tick, total_earned)
-         VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO farm_sessions (user_id, thread_id, message_id, last_tick, total_earned, total_grass)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id) DO UPDATE SET
            thread_id = excluded.thread_id,
            message_id = excluded.message_id,
            last_tick = excluded.last_tick,
-           total_earned = excluded.total_earned`,
+           total_earned = excluded.total_earned,
+           total_grass = excluded.total_grass`,
       [
         session.user_id,
         session.thread_id,
         session.message_id,
         session.last_tick,
         session.total_earned || 0,
+        session.total_grass || 0,
       ]
     );
     persist();
@@ -340,6 +343,7 @@ function createBicanhService({
       message_id: message.id,
       last_tick: Date.now(),
       total_earned: 0,
+      total_grass: 0,
     });
 
     await interaction.reply({
@@ -380,17 +384,22 @@ function createBicanhService({
     }
 
     const pending = Number(session.total_earned || 0);
+    const pendingGrass = Number(session.total_grass || 0);
     const now = Date.now();
 
-    if (pending <= 0) {
+    if (pending <= 0 && pendingGrass <= 0) {
       await interaction.reply({ content: "Không có thưởng để nhận.", ephemeral: true });
       return;
     }
 
     db.run("BEGIN");
-    db.run("UPDATE users SET currency = currency + ? WHERE user_id = ?", [pending, user.user_id]);
+    db.run("UPDATE users SET currency = currency + ?, grass = grass + ? WHERE user_id = ?", [
+      pending,
+      pendingGrass,
+      user.user_id,
+    ]);
     db.run(
-      "UPDATE farm_sessions SET total_earned = 0, last_tick = ? WHERE user_id = ?",
+      "UPDATE farm_sessions SET total_earned = 0, total_grass = 0, last_tick = ? WHERE user_id = ?",
       [now, user.user_id]
     );
     db.run("COMMIT");
@@ -406,7 +415,9 @@ function createBicanhService({
             `⛏️ Farm hầm ngục\n` +
             `Tầng ${guardLevel}\n` +
             `Nhận mới: +0 ${CURRENCY_NAME}\n` +
+            `Cỏ nhận mới: +0\n` +
             `Tổng tích lũy: 0 ${CURRENCY_NAME}\n` +
+            `Tích lũy cỏ: 0\n` +
             `Cập nhật: ${new Date(now).toLocaleString("vi-VN")}`;
           await message.edit({ content });
         }
@@ -428,6 +439,7 @@ function createBicanhService({
           title: "⛏️ Nhận thưởng hầm ngục",
           description:
             `Đã nhận **${formatNumber(pending)} ${CURRENCY_NAME}**\n` +
+            `Cỏ nhận được: **${formatNumber(pendingGrass)}**\n` +
             `Thời gian farm: **${timeStr}**\n` +
             `Tầng hầm ngục: **${guardLevel}**`,
           timestamp: new Date(),
@@ -460,15 +472,17 @@ function createBicanhService({
         const cappedTicks = Math.min(ticks, MAX_FARM_CATCHUP_TICKS);
         let delta = 0;
         let expDelta = 0;
+        let grassDelta = 0;
         for (let i = 0; i < cappedTicks; i++) {
           const roll = 0.8 + Math.random() * 0.4;
           delta += Math.round(guardLevel * LINH_THACH_RATE * roll);
           expDelta += Math.round(guardLevel * EXP_RATE * roll);
+          grassDelta += Math.round(guardLevel * GRASS_RATE * roll);
         }
         const newLast = s.last_tick + cappedTicks * FARM_INTERVAL_MS;
         db.run(
-          "UPDATE farm_sessions SET last_tick = ?, total_earned = total_earned + ? WHERE user_id = ?",
-          [newLast, delta, s.user_id]
+          "UPDATE farm_sessions SET last_tick = ?, total_earned = total_earned + ?, total_grass = total_grass + ? WHERE user_id = ?",
+          [newLast, delta, grassDelta, s.user_id]
         );
         db.run(
           "UPDATE users SET exp = exp + ? WHERE user_id = ?",
@@ -504,10 +518,12 @@ function createBicanhService({
           message_id: s.message_id,
           added: delta,
           expAdded: expDelta,
+          grassAdded: grassDelta,
           ticks: cappedTicks,
           guardLevel,
           newLast,
           total: s.total_earned + delta,
+          totalGrass: (Number(s.total_grass || 0) + grassDelta),
           levelUps,
           oldLevel,
           newLevel: currentLevel,
@@ -532,7 +548,9 @@ function createBicanhService({
           `⛏️ Farm hầm ngục\n` +
           `Tầng ${upd.guardLevel}\n` +
           `Nhận mới: +${formatNumber(upd.added)} ${CURRENCY_NAME} & +${formatNumber(upd.expAdded)} EXP (${upd.ticks} phút)\n` +
+          `Cỏ nhận mới: +${formatNumber(upd.grassAdded)} (${upd.ticks} phút)\n` +
           `Tổng tích lũy: ${formatNumber(upd.total)} ${CURRENCY_NAME}\n` +
+          `Tích lũy cỏ: ${formatNumber(upd.totalGrass)}\n` +
           `Cập nhật: ${new Date().toLocaleString("vi-VN")}`;
         await message.edit({ content });
 

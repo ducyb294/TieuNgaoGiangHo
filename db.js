@@ -48,6 +48,7 @@ function initializeSchema(db) {
       level INTEGER NOT NULL DEFAULT 1,
       exp INTEGER NOT NULL DEFAULT 0,
       currency INTEGER NOT NULL DEFAULT 0,
+      grass INTEGER NOT NULL DEFAULT 0,
       last_exp_timestamp INTEGER NOT NULL DEFAULT 0,
       attack INTEGER NOT NULL DEFAULT 0,
       defense INTEGER NOT NULL DEFAULT 0,
@@ -116,7 +117,8 @@ function initializeSchema(db) {
       thread_id TEXT NOT NULL,
       message_id TEXT NOT NULL,
       last_tick INTEGER NOT NULL,
-      total_earned INTEGER NOT NULL DEFAULT 0
+      total_earned INTEGER NOT NULL DEFAULT 0,
+      total_grass INTEGER NOT NULL DEFAULT 0
     );
   `);
 
@@ -240,6 +242,22 @@ function initializeSchema(db) {
   addColumnIfMissing("chanle_played", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing("chanle_won", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing("bicanh_level", "INTEGER NOT NULL DEFAULT 1");
+  addColumnIfMissing("grass", "INTEGER NOT NULL DEFAULT 0");
+
+  const farmColumns = db.prepare(`PRAGMA table_info(farm_sessions)`);
+  const farmExisting = [];
+  while (farmColumns.step()) {
+    const row = farmColumns.getAsObject();
+    farmExisting.push(row.name);
+  }
+  farmColumns.free();
+
+  const addFarmColumnIfMissing = (name, definition) => {
+    if (farmExisting.includes(name)) return;
+    db.run(`ALTER TABLE farm_sessions ADD COLUMN ${name} ${definition};`);
+  };
+
+  addFarmColumnIfMissing("total_grass", "INTEGER NOT NULL DEFAULT 0");
 }
 
 module.exports = { getDatabase };

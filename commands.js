@@ -31,6 +31,16 @@ const commands = [
     .setName("dotphathucuoi")
     .setDescription("Đột phá thú cưỡi (sao)"),
   new SlashCommandBuilder()
+    .setName("sudungco")
+    .setDescription("Cho thú cưỡi đang đeo ăn cỏ")
+    .addIntegerOption((option) =>
+      option
+        .setName("soluong")
+        .setDescription("Số lượng cỏ")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
     .setName("giftcode")
     .setDescription("Nhập gift code")
     .addStringOption((option) =>

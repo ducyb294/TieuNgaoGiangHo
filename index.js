@@ -487,6 +487,10 @@ function buildMountListEmbed(userId, mounts, page) {
                         await handleDotPhaThuCuoi(interaction, db, persist);
                     }
 
+                    if (interaction.commandName === "sudungco") {
+                        await handleSuDungCo(interaction, db, persist);
+                    }
+
                     if (interaction.commandName === "daomo") {
                         await handleMining(interaction, db, persist);
                     }
@@ -618,6 +622,7 @@ function getUser(db, userId) {
                 level,
                 exp,
                 currency,
+                grass,
                 bicanh_level,
                 last_exp_timestamp,
                 attack,
@@ -646,11 +651,11 @@ function getUser(db, userId) {
 function createUser(db, persist, userId, baseName, lastExpTimestamp) {
     const nameToSave = truncateBaseName(baseName);
     db.run(
-        `INSERT INTO users (user_id, base_name, level, exp, currency, bicanh_level, last_exp_timestamp,
+        `INSERT INTO users (user_id, base_name, level, exp, currency, grass, bicanh_level, last_exp_timestamp,
                             attack, defense, health, dodge, accuracy, crit_rate, crit_resistance,
                             armor_penetration, armor_resistance, stamina, last_stamina_timestamp,
                             chanle_played, chanle_won)
-         VALUES (?, ?, 1, 0, 0, 1, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, 0, 0)`,
+         VALUES (?, ?, 1, 0, 0, 0, 1, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, 0, 0)`,
         [userId, nameToSave, lastExpTimestamp, MAX_STAMINA, lastExpTimestamp]
     );
     persist();
@@ -1178,6 +1183,87 @@ async function handleDotPhaThuCuoi(interaction, db, persist) {
                     `Sao hiện tại: ★${nextStar}`,
                 timestamp: new Date(),
             },
+        ],
+        ephemeral: false,
+    });
+}
+
+async function handleSuDungCo(interaction, db, persist) {
+    if (INFO_CHANNEL_ID && interaction.channelId !== INFO_CHANNEL_ID) {
+        await interaction.reply({content: TEXT.infoChannelOnly, ephemeral: true});
+        return;
+    }
+
+    const amount = Math.max(1, Number(interaction.options.getInteger("soluong", true)));
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    let user = getUser(db, member.id);
+    if (!user) {
+        user = createUser(db, persist, member.id, getBaseNameFromMember(member), Date.now());
+    }
+
+    user = applyPassiveExpForUser(db, persist, user);
+
+    const mount = getEquippedMount(db, user.user_id);
+    if (!mount) {
+        await interaction.reply({content: "Bạn chưa đeo thú cưỡi nào.", ephemeral: true});
+        return;
+    }
+
+    const level = Math.max(1, Number(mount.level || 1));
+    if (level >= MOUNT_MAX_LEVEL) {
+        await interaction.reply({content: "Thú cưỡi đã đạt level 100, không thể ăn cỏ nữa. Hãy /dotphathucuoi để lên sao, tỉ lệ 20%, tốn 100m ngân lượng", ephemeral: false});
+        return;
+    }
+
+    const currentGrass = Math.max(0, Number(user.grass || 0));
+    if (currentGrass < amount) {
+        await interaction.reply({
+            content: `Không đủ cỏ. Bạn đang có ${formatNumber(currentGrass)} cỏ.`,
+            ephemeral: true,
+        });
+        return;
+    }
+
+    let newLevel = level;
+    let remainingExp = Math.max(0, Number(mount.exp || 0)) + amount;
+    while (newLevel < MOUNT_MAX_LEVEL && remainingExp >= MOUNT_EXP_PER_LEVEL) {
+        remainingExp -= MOUNT_EXP_PER_LEVEL;
+        newLevel += 1;
+    }
+    if (newLevel >= MOUNT_MAX_LEVEL) {
+        remainingExp = 0;
+    }
+
+    db.run("BEGIN");
+    db.run("UPDATE users SET grass = grass - ? WHERE user_id = ?", [amount, user.user_id]);
+    db.run("UPDATE user_mounts SET level = ?, exp = ? WHERE user_id = ? AND mount_id = ?", [
+        newLevel,
+        remainingExp,
+        user.user_id,
+        mount.mount_id,
+    ]);
+    db.run("COMMIT");
+    persist();
+
+    const refreshed = getUserMount(db, user.user_id, mount.mount_id);
+    const expLabel =
+        newLevel >= MOUNT_MAX_LEVEL
+            ? "Đã đạt level 100"
+            : `${formatNumber(remainingExp)}/${formatNumber(MOUNT_EXP_PER_LEVEL)} exp`;
+
+    await interaction.reply({
+        embeds: [
+            {
+                color: 0x2ecc71,
+                title: "🌿 Cho thú cưỡi ăn cỏ",
+                description:
+                    `Đã dùng: **${formatNumber(amount)}** cỏ\n` +
+                    `Level: **${level} → ${newLevel}**\n` +
+                    `EXP hiện tại: **${expLabel}**`,
+                timestamp: new Date(),
+            },
+            buildMountInfoEmbed(refreshed, "Thú cưỡi hiện tại"),
         ],
         ephemeral: false,
     });
