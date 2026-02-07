@@ -336,10 +336,11 @@ function buildMountInfoEmbed(mount, title = "Thông tin thú cưỡi") {
     const exp = Math.max(0, Number(mount.exp || 0));
     const star = Math.max(1, Number(mount.star || 1));
     const lines = buildMountStatLines(mount);
+    const expPerLevel = MOUNT_EXP_PER_LEVEL * star;
     const expLabel =
         level >= MOUNT_MAX_LEVEL
             ? "Đã đạt level 100"
-            : `${formatNumber(exp)}/${formatNumber(MOUNT_EXP_PER_LEVEL)} exp`;
+            : `${formatNumber(exp)}/${formatNumber(expPerLevel)} exp`;
 
     return {
         color: 0x8e44ad,
@@ -1338,6 +1339,7 @@ async function handleSuDungCo(interaction, db, persist) {
     }
 
     const level = Math.max(1, Number(mount.level || 1));
+    const star = Math.max(1, Number(mount.star || 1));
     if (level >= MOUNT_MAX_LEVEL) {
         await interaction.reply({content: "Thú cưỡi đã đạt level 100, không thể ăn cỏ nữa. Hãy /dotphathucuoi để lên sao, tỉ lệ 20%, tốn 100m ngân lượng", ephemeral: false});
         return;
@@ -1354,8 +1356,9 @@ async function handleSuDungCo(interaction, db, persist) {
 
     let newLevel = level;
     let remainingExp = Math.max(0, Number(mount.exp || 0)) + amount;
-    while (newLevel < MOUNT_MAX_LEVEL && remainingExp >= MOUNT_EXP_PER_LEVEL) {
-        remainingExp -= MOUNT_EXP_PER_LEVEL;
+    const expPerLevel = MOUNT_EXP_PER_LEVEL * star;
+    while (newLevel < MOUNT_MAX_LEVEL && remainingExp >= expPerLevel) {
+        remainingExp -= expPerLevel;
         newLevel += 1;
     }
     if (newLevel >= MOUNT_MAX_LEVEL) {
@@ -1377,7 +1380,7 @@ async function handleSuDungCo(interaction, db, persist) {
     const expLabel =
         newLevel >= MOUNT_MAX_LEVEL
             ? "Đã đạt level 100"
-            : `${formatNumber(remainingExp)}/${formatNumber(MOUNT_EXP_PER_LEVEL)} exp`;
+            : `${formatNumber(remainingExp)}/${formatNumber(expPerLevel)} exp`;
 
     await interaction.reply({
         embeds: [
