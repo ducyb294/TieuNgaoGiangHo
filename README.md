@@ -8,6 +8,7 @@ Bot Discord nhập vai tu tiên với hệ thống level, biệt danh tự độ
 - Tự động lên level khi đủ EXP trong quá trình farm hầm ngục.
 - Lệnh `/doiten` đổi nickname theo định dạng: `Tên - Level x` (chỉ dùng trong kênh đổi tên).
 - Lệnh `/info` hiển thị bảng thông tin nhân vật (level, EXP, chỉ số) + thú cưỡi đang dùng (nếu có).
+- Lệnh `/hanhtrang` xem nhanh ngân lượng và cỏ hiện có (kênh info).
 - Lệnh `/daomo` tiêu thể lực để đào mỏ linh thạch trong kênh riêng.
 - Lệnh `/chanle` và `/allinchanle` cược chẵn/lẻ, trả thưởng x1.95, kèm biểu đồ lịch sử 20 ván gần nhất.
 - Hệ thống Bỉ Cảnh:
@@ -26,6 +27,9 @@ Bot Discord nhập vai tu tiên với hệ thống level, biệt danh tự độ
   - `/dotphathucuoi` đột phá sao khi thú cưỡi đạt level 100 (20% thành công, tốn 100,000,000 ngân lượng).
 - Hệ thống giftcode:
   - `/giftcode` nhập mã quà tặng trong kênh giftcode riêng.
+- Hệ thống gacha:
+  - `/gacha` quay gacha trong kênh gacha riêng, mỗi ngày 5 lượt, reset 00:00 (GMT+7).
+  - `/tile` xem bảng tỉ lệ gacha.
 - Nickname tự động cập nhật khi lên level.
 - Lưu trữ bằng SQLite (sql.js), file DB tại `DB_PATH`.
 - Tự động backup `data.db` và `.env` vào kênh admin: chạy ngay khi bot khởi động và lặp lại mỗi 12 giờ.
@@ -72,7 +76,7 @@ Quy tắc:
 - Khi nhận thú cưỡi: chỉ mở chỉ số khi `/sudungthucuoi` lần đầu.
 - Mở chỉ số: ngẫu nhiên 4/9 chỉ số base (1000 atk/def/hp hoặc 1% các chỉ số %).
 - Công thức chỉ số: `base * sao * level`.
-- Level ban đầu 1, sao ban đầu 1; mỗi level cần 1000 exp (nhận từ item).
+- Level ban đầu 1, sao ban đầu 1; mỗi level cần `1000 * sao` exp (nhận từ item).
 - Đạt level 100 cần `/dotphathucuoi` để lên sao.
 
 ## 🎁 Giftcode
@@ -105,6 +109,7 @@ CHANLE_CHANNEL_ID=
 BICANH_CHANNEL_ID=
 SHOP_CHANNEL_ID=
 GIFT_CODE_CHANNEL_ID=
+GACHA_CHANNEL_ID=
 LEADERBOARD_CHANNEL_ID=
 BAUCUA_CHANNEL_ID=
 
