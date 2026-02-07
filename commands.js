@@ -147,6 +147,45 @@ const commands = [
     .setName("tile")
     .setDescription("Xem bảng tỉ lệ gacha"),
   new SlashCommandBuilder()
+    .setName("danhde")
+    .setDescription("Đánh đề 2 số (00-99)")
+    .addStringOption((option) =>
+      option
+        .setName("so")
+        .setDescription("Số đề (00-99)")
+        .setRequired(true)
+        .setMinLength(2)
+        .setMaxLength(2)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("cuoc")
+        .setDescription("Số ngân lượng cược")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
+    .setName("danhlo")
+    .setDescription("Đánh lô 2 số (00-99)")
+    .addStringOption((option) =>
+      option
+        .setName("so")
+        .setDescription("Số lô (00-99)")
+        .setRequired(true)
+        .setMinLength(2)
+        .setMaxLength(2)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("cuoc")
+        .setDescription("Số ngân lượng cược")
+        .setRequired(true)
+        .setMinValue(1)
+    ),
+  new SlashCommandBuilder()
+    .setName("lode")
+    .setDescription("Xem danh sách lô/đề đã đánh"),
+  new SlashCommandBuilder()
     .setName("npc")
     .setDescription("Nhận vai Chủ Sòng Bài"),
   new SlashCommandBuilder()

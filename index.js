@@ -23,6 +23,7 @@ const createLiXiService = require("./services/lixi");
 const createBlackjackService = require("./services/blackjack");
 const createGiftCodeService = require("./services/giftcode");
 const createGachaService = require("./services/gacha");
+const createKqxsService = require("./services/kqxs");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -65,6 +66,7 @@ const BLACKJACK_DEFAULT_BET = Number(process.env.BLACKJACK_DEFAULT_BET || 0);
 const LEADERBOARD_REFRESH_MS = 5 * 60 * 1000;
 const GIFT_CODE_CHANNEL_ID = process.env.GIFT_CODE_CHANNEL_ID;
 const GACHA_CHANNEL_ID = process.env.GACHA_CHANNEL_ID;
+const KQXS_CHANNEL_ID = process.env.KQXS_CHANNEL_ID;
 const AUTO_BACKUP_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const MOUNT_ITEMS_PATH = path.join(__dirname, "data", "items");
 const MOUNT_PAGE_SIZE = 10;
@@ -109,6 +111,7 @@ let lixiService = null;
 let blackjackService = null;
 let giftCodeService = null;
 let gachaService = null;
+let kqxsService = null;
 
 async function sendErrorLog(title, error) {
     if (!clientRef || !ERROR_LOG_CHANNEL_ID) return;
@@ -519,6 +522,19 @@ function buildMountListEmbed(userId, mounts, page) {
         GACHA_CHANNEL_ID,
     });
 
+    kqxsService = createKqxsService({
+        withDatabase,
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+        TEXT,
+        KQXS_CHANNEL_ID,
+        clientRefGetter: () => clientRef,
+    });
+
     client.once(Events.ClientReady, async () => {
         console.log(`Ready as ${client.user.tag}`);
         clientRef = client;
@@ -530,6 +546,9 @@ function buildMountListEmbed(userId, mounts, page) {
             await withDatabase(async (db, persist) => {
                 giftCodeService.ensureGiftCode(db, persist);
             });
+        }
+        if (kqxsService) {
+            kqxsService.startScheduler();
         }
         scheduleAutoBackup(client);
 
@@ -685,11 +704,25 @@ function buildMountListEmbed(userId, mounts, page) {
                     if (interaction.commandName === "tile") {
                         await gachaService.handleTile(interaction);
                     }
+
+                    if (interaction.commandName === "danhde") {
+                        await kqxsService.handleDanhDe(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "danhlo") {
+                        await kqxsService.handleDanhLo(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "lode") {
+                        await kqxsService.handleLode(interaction, db, persist);
+                    }
                 } else if (interaction.isButton()) {
                     if (interaction.customId === "admin:update") {
                         await handleUpdate(interaction, db, persist);
                         return;
                     }
+                    const lodeHandled = await kqxsService.handleBetListButton(interaction, db, persist);
+                    if (lodeHandled) return;
                     const lixiHandled = await lixiService.handleButton(interaction, db, persist);
                     if (lixiHandled) return;
 

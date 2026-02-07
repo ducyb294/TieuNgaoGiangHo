@@ -226,6 +226,31 @@ function initializeSchema(db) {
     );
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS lode_bets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      day_key TEXT NOT NULL,
+      bet_type TEXT NOT NULL,
+      bet_number TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS kqxs_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      last_day_key TEXT
+    );
+  `);
+
+  db.run(`
+    INSERT INTO kqxs_state (id, last_day_key)
+    SELECT 1, NULL
+    WHERE NOT EXISTS (SELECT 1 FROM kqxs_state WHERE id = 1);
+  `);
+
   const columns = db.prepare(`PRAGMA table_info(users)`);
   const existing = [];
   while (columns.step()) {
