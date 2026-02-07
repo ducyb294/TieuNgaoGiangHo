@@ -22,6 +22,7 @@ const createBauCuaService = require("./services/bauCua");
 const createLiXiService = require("./services/lixi");
 const createBlackjackService = require("./services/blackjack");
 const createGiftCodeService = require("./services/giftcode");
+const createGachaService = require("./services/gacha");
 const {getDatabase} = require("./db");
 const {expToNext} = require("./utils/exp");
 const {formatNumber} = require("./utils/format");
@@ -63,6 +64,7 @@ const BLACKJACK_CHANNEL_ID = process.env.BLACKJACK_CHANNEL_ID;
 const BLACKJACK_DEFAULT_BET = Number(process.env.BLACKJACK_DEFAULT_BET || 0);
 const LEADERBOARD_REFRESH_MS = 5 * 60 * 1000;
 const GIFT_CODE_CHANNEL_ID = process.env.GIFT_CODE_CHANNEL_ID;
+const GACHA_CHANNEL_ID = process.env.GACHA_CHANNEL_ID;
 const AUTO_BACKUP_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const MOUNT_ITEMS_PATH = path.join(__dirname, "data", "items");
 const MOUNT_PAGE_SIZE = 10;
@@ -106,6 +108,7 @@ let casinoService = null;
 let lixiService = null;
 let blackjackService = null;
 let giftCodeService = null;
+let gachaService = null;
 
 async function sendErrorLog(title, error) {
     if (!clientRef || !ERROR_LOG_CHANNEL_ID) return;
@@ -503,6 +506,18 @@ function buildMountListEmbed(userId, mounts, page) {
         GIFT_CODE_CHANNEL_ID,
     });
 
+    gachaService = createGachaService({
+        withDatabase,
+        getUser,
+        createUser,
+        applyPassiveExpForUser,
+        formatNumber,
+        getBaseNameFromMember,
+        CURRENCY_NAME,
+        TEXT,
+        GACHA_CHANNEL_ID,
+    });
+
     client.once(Events.ClientReady, async () => {
         console.log(`Ready as ${client.user.tag}`);
         clientRef = client;
@@ -661,6 +676,14 @@ function buildMountListEmbed(userId, mounts, page) {
                     if (interaction.commandName === "giftcode") {
                         await giftCodeService.handleGiftCode(interaction, db, persist);
                     }
+
+                    if (interaction.commandName === "gacha") {
+                        await gachaService.handleGacha(interaction, db, persist);
+                    }
+
+                    if (interaction.commandName === "tile") {
+                        await gachaService.handleTile(interaction);
+                    }
                 } else if (interaction.isButton()) {
                     if (interaction.customId === "admin:update") {
                         await handleUpdate(interaction, db, persist);
@@ -724,7 +747,9 @@ function getUser(db, userId) {
                 stamina,
                 last_stamina_timestamp,
                 chanle_played,
-                chanle_won
+                chanle_won,
+                gacha_day_key,
+                gacha_count
          FROM users
          WHERE user_id = ?`
     );
@@ -741,8 +766,8 @@ function createUser(db, persist, userId, baseName, lastExpTimestamp) {
         `INSERT INTO users (user_id, base_name, level, exp, currency, grass, bicanh_level, last_exp_timestamp,
                             attack, defense, health, dodge, accuracy, crit_rate, crit_resistance,
                             armor_penetration, armor_resistance, stamina, last_stamina_timestamp,
-                            chanle_played, chanle_won)
-         VALUES (?, ?, 1, 0, 0, 0, 1, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, 0, 0)`,
+                            chanle_played, chanle_won, gacha_day_key, gacha_count)
+         VALUES (?, ?, 1, 0, 0, 0, 1, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, 0, 0, '', 0)`,
         [userId, nameToSave, lastExpTimestamp, MAX_STAMINA, lastExpTimestamp]
     );
     persist();

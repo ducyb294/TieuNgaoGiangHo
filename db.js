@@ -62,7 +62,9 @@ function initializeSchema(db) {
       stamina INTEGER NOT NULL DEFAULT 10,
       last_stamina_timestamp INTEGER NOT NULL DEFAULT 0,
       chanle_played INTEGER NOT NULL DEFAULT 0,
-      chanle_won INTEGER NOT NULL DEFAULT 0
+      chanle_won INTEGER NOT NULL DEFAULT 0,
+      gacha_day_key TEXT DEFAULT "",
+      gacha_count INTEGER NOT NULL DEFAULT 0
     );
   `);
 
@@ -243,6 +245,8 @@ function initializeSchema(db) {
   addColumnIfMissing("chanle_won", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing("bicanh_level", "INTEGER NOT NULL DEFAULT 1");
   addColumnIfMissing("grass", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing("gacha_day_key", "TEXT DEFAULT ''");
+  addColumnIfMissing("gacha_count", "INTEGER NOT NULL DEFAULT 0");
 
   const farmColumns = db.prepare(`PRAGMA table_info(farm_sessions)`);
   const farmExisting = [];

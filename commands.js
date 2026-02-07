@@ -141,6 +141,12 @@ const commands = [
     .setName("hanhtrang")
     .setDescription("Xem ngân lượng và cỏ hiện có"),
   new SlashCommandBuilder()
+    .setName("chucmungnammoi")
+    .setDescription("Quay gacha nhận thưởng"),
+  new SlashCommandBuilder()
+    .setName("tile")
+    .setDescription("Xem bảng tỉ lệ gacha"),
+  new SlashCommandBuilder()
     .setName("npc")
     .setDescription("Nhận vai Chủ Sòng Bài"),
   new SlashCommandBuilder()

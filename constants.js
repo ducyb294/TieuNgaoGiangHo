@@ -26,6 +26,7 @@ const TEXT = {
   shopChannelOnly: `Dùng trong <@${process.env.SHOP_CHANNEL_ID}>`,
   backupChannelOnly: `Dùng trong <@${process.env.BACKUP_CHANNEL_ID}>`,
   giftCodeChannelOnly: `Dùng trong <@${process.env.GIFT_CODE_CHANNEL_ID}>`,
+  gachaChannelOnly: `Dùng trong <@${process.env.GACHA_CHANNEL_ID}>`,
   blackjackChannelOnly: `Dùng trong <#${process.env.BLACKJACK_CHANNEL_ID}>`,
   renameSuccess: "Đã cập nhật tên.",
   renameInvalid: "Tên không hợp lệ.",
