@@ -232,6 +232,75 @@ function getEquippedMount(db, userId) {
     return row;
 }
 
+function getEquippedMountBonus(db, userId) {
+    const mount = getEquippedMount(db, userId);
+    if (!mount || Number(mount.stats_unlocked || 0) === 0) {
+        return {
+            attack: 0,
+            defense: 0,
+            health: 0,
+            dodge: 0,
+            accuracy: 0,
+            crit_rate: 0,
+            crit_resistance: 0,
+            armor_penetration: 0,
+            armor_resistance: 0,
+        };
+    }
+
+    const baseStats = parseMountStats(mount.base_stats);
+    if (!baseStats.length) {
+        return {
+            attack: 0,
+            defense: 0,
+            health: 0,
+            dodge: 0,
+            accuracy: 0,
+            crit_rate: 0,
+            crit_resistance: 0,
+            armor_penetration: 0,
+            armor_resistance: 0,
+        };
+    }
+
+    const level = Math.max(1, Number(mount.level || 1));
+    const star = Math.max(1, Number(mount.star || 1));
+
+    const bonuses = {
+        attack: 0,
+        defense: 0,
+        health: 0,
+        dodge: 0,
+        accuracy: 0,
+        crit_rate: 0,
+        crit_resistance: 0,
+        armor_penetration: 0,
+        armor_resistance: 0,
+    };
+
+    const map = {
+        attack: "attack",
+        defense: "defense",
+        health: "health",
+        critRate: "crit_rate",
+        accuracy: "accuracy",
+        dodge: "dodge",
+        critDamageResistance: "crit_resistance",
+        armorPenetration: "armor_penetration",
+        armorResistance: "armor_resistance",
+    };
+
+    baseStats.forEach((stat) => {
+        const key = map[stat.id];
+        if (!key) return;
+        const total = Number(stat.value || 0) * star * level;
+        if (!Number.isFinite(total)) return;
+        bonuses[key] += total;
+    });
+
+    return bonuses;
+}
+
 function setEquippedMount(db, persist, userId, mountId) {
     db.run("BEGIN");
     db.run("UPDATE user_mounts SET equipped = 0 WHERE user_id = ?", [userId]);
@@ -350,6 +419,7 @@ function buildMountListEmbed(userId, mounts, page) {
         expToNext,
         INFO_CHANNEL_ID,
         updateNickname,
+        getEquippedMountBonus,
     });
 
     shopService = createShopService({
@@ -983,6 +1053,29 @@ async function handleInfo(interaction, db, persist) {
     user = applyPassiveExpForUser(db, persist, user);
     await interaction.deferReply({ephemeral: false});
 
+    const mountBonus = getEquippedMountBonus(db, user.user_id);
+    const baseStats = {
+        attack: Number(user.attack || 0),
+        defense: Number(user.defense || 0),
+        health: Number(user.health || 0),
+        dodge: Number(user.dodge || 0),
+        accuracy: Number(user.accuracy || 0),
+        crit_rate: Number(user.crit_rate || 0),
+        crit_resistance: Number(user.crit_resistance || 0),
+        armor_penetration: Number(user.armor_penetration || 0),
+        armor_resistance: Number(user.armor_resistance || 0),
+    };
+    const totalStats = {
+        attack: baseStats.attack + mountBonus.attack,
+        defense: baseStats.defense + mountBonus.defense,
+        health: baseStats.health + mountBonus.health,
+        dodge: baseStats.dodge + mountBonus.dodge,
+        accuracy: baseStats.accuracy + mountBonus.accuracy,
+        crit_rate: baseStats.crit_rate + mountBonus.crit_rate,
+        crit_resistance: baseStats.crit_resistance + mountBonus.crit_resistance,
+        armor_penetration: baseStats.armor_penetration + mountBonus.armor_penetration,
+        armor_resistance: baseStats.armor_resistance + mountBonus.armor_resistance,
+    };
     const requiredExp = expToNext(user.level);
     const {buffer, fileName} = await buildInfoCard({
         name: user.base_name,
@@ -990,17 +1083,9 @@ async function handleInfo(interaction, db, persist) {
         exp: user.exp,
         expRequired: requiredExp,
         avatarUrl: interaction.user.displayAvatarURL({extension: "png", size: 256}),
-        stats: {
-            attack: user.attack,
-            defense: user.defense,
-            health: user.health,
-            dodge: user.dodge,
-            accuracy: user.accuracy,
-            crit_rate: user.crit_rate,
-            crit_resistance: user.crit_resistance,
-            armor_penetration: user.armor_penetration,
-            armor_resistance: user.armor_resistance,
-        },
+        stats: totalStats,
+        baseStats,
+        bonusStats: mountBonus,
         currency: user.currency,
     });
 

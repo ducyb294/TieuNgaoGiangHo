@@ -82,42 +82,88 @@ async function fetchImageBuffer(url) {
   }
 }
 
-async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl, currency }) {
+function formatCompactNumber(value) {
+  const numeric = Number(value) || 0;
+  const abs = Math.abs(numeric);
+  if (abs < 1000) return formatNumber(numeric);
+  const sign = numeric < 0 ? -1 : 1;
+  const compact = Math.floor(abs / 1000);
+  return `${compact * sign}k`;
+}
+
+async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl, currency, baseStats, bonusStats }) {
   const safeName = sanitizeSvgText(name || "NHÂN VẬT");
   const safeLevel = Math.max(0, Number(level) || 0);
   const safeExp = Math.max(0, Number(exp) || 0);
   const requiredExp = Math.max(1, Number(expRequired) || 1);
 
+  const base = baseStats || stats || {};
+  const bonus = bonusStats || {
+    attack: 0,
+    defense: 0,
+    health: 0,
+    dodge: 0,
+    accuracy: 0,
+    crit_rate: 0,
+    crit_resistance: 0,
+    armor_penetration: 0,
+    armor_resistance: 0,
+  };
+
   const effective = applyLevelBonus(
     {
-      attack: stats.attack,
-      defense: stats.defense,
-      health: stats.health,
+      attack: base.attack,
+      defense: base.defense,
+      health: base.health,
     },
     safeLevel
   );
 
+  const formatBasePlusBonus = (baseValue, bonusValue, suffix = "") => {
+    const left = `${formatCompactNumber(baseValue)}${suffix}`;
+    const right = `${formatCompactNumber(bonusValue)}${suffix}`;
+    return `${left} + ${right}`;
+  };
+
   const statColumns = [
     [
-      { label: STAT_LABELS.attack, value: `${formatNumber(effective.attack)}` },
-      { label: STAT_LABELS.defense, value: `${formatNumber(effective.defense)}` },
-      { label: STAT_LABELS.health, value: `${formatNumber(effective.health)}` },
-      { label: STAT_LABELS.dodge, value: `${formatNumber(stats.dodge)}%` },
-      { label: STAT_LABELS.accuracy, value: `${formatNumber(stats.accuracy)}%` },
+      {
+        label: STAT_LABELS.attack,
+        value: formatBasePlusBonus(effective.attack, bonus.attack),
+      },
+      {
+        label: STAT_LABELS.defense,
+        value: formatBasePlusBonus(effective.defense, bonus.defense),
+      },
+      {
+        label: STAT_LABELS.health,
+        value: formatBasePlusBonus(effective.health, bonus.health),
+      },
+      {
+        label: STAT_LABELS.dodge,
+        value: formatBasePlusBonus(base.dodge, bonus.dodge, "%"),
+      },
+      {
+        label: STAT_LABELS.accuracy,
+        value: formatBasePlusBonus(base.accuracy, bonus.accuracy, "%"),
+      },
     ],
     [
-      { label: STAT_LABELS.critRate, value: `${formatNumber(stats.crit_rate)}%` },
+      {
+        label: STAT_LABELS.critRate,
+        value: formatBasePlusBonus(base.crit_rate, bonus.crit_rate, "%"),
+      },
       {
         label: STAT_LABELS.critDamageResistance,
-        value: `${formatNumber(stats.crit_resistance)}%`,
+        value: formatBasePlusBonus(base.crit_resistance, bonus.crit_resistance, "%"),
       },
       {
         label: STAT_LABELS.armorPenetration,
-        value: `${formatNumber(stats.armor_penetration)}%`,
+        value: formatBasePlusBonus(base.armor_penetration, bonus.armor_penetration, "%"),
       },
       {
         label: STAT_LABELS.armorResistance,
-        value: `${formatNumber(stats.armor_resistance)}%`,
+        value: formatBasePlusBonus(base.armor_resistance, bonus.armor_resistance, "%"),
       },
     ],
   ];
@@ -169,7 +215,7 @@ async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl, 
   });
   composites.push({
     input: createTextSvg(
-      `EXP: ${formatNumber(safeExp)} | ${CURRENCY_NAME}: ${formatNumber(currency)}`,
+      `EXP: ${formatCompactNumber(safeExp)} | ${CURRENCY_NAME}: ${formatCompactNumber(currency)}`,
       LAYOUT.exp.width,
       LAYOUT.exp.height,
       { fontSize: 38, color: "#cbb185", fontWeight: 600 }

@@ -18,6 +18,7 @@ function createBicanhService({
   expToNext,
   INFO_CHANNEL_ID,
   updateNickname,
+  getEquippedMountBonus,
 }) {
   let farmTimer = null;
   const MAX_FARM_CATCHUP_TICKS = 360; // 6 hours
@@ -208,6 +209,7 @@ function createBicanhService({
 
     const guardLevel = getBicanhLevel(db, user.user_id);
     const guardStats = getDefenderStats(guardLevel);
+    const mountBonus = getEquippedMountBonus ? getEquippedMountBonus(db, user.user_id) : null;
     const effective = applyLevelBonus(
       {
         attack: user.attack,
@@ -222,15 +224,15 @@ function createBicanhService({
       name: user.base_name,
       level: user.level,
       exp: user.exp,
-      attack: effective.attack,
-      defense: effective.defense,
-      health: effective.health,
-      dodge: user.dodge,
-      accuracy: user.accuracy,
-      crit_rate: user.crit_rate,
-      crit_resistance: user.crit_resistance,
-      armor_penetration: user.armor_penetration,
-      armor_resistance: user.armor_resistance,
+      attack: Number(effective.attack || 0) + (mountBonus ? mountBonus.attack : 0),
+      defense: Number(effective.defense || 0) + (mountBonus ? mountBonus.defense : 0),
+      health: Number(effective.health || 0) + (mountBonus ? mountBonus.health : 0),
+      dodge: Number(user.dodge || 0) + (mountBonus ? mountBonus.dodge : 0),
+      accuracy: Number(user.accuracy || 0) + (mountBonus ? mountBonus.accuracy : 0),
+      crit_rate: Number(user.crit_rate || 0) + (mountBonus ? mountBonus.crit_rate : 0),
+      crit_resistance: Number(user.crit_resistance || 0) + (mountBonus ? mountBonus.crit_resistance : 0),
+      armor_penetration: Number(user.armor_penetration || 0) + (mountBonus ? mountBonus.armor_penetration : 0),
+      armor_resistance: Number(user.armor_resistance || 0) + (mountBonus ? mountBonus.armor_resistance : 0),
     };
 
     const defender = {
