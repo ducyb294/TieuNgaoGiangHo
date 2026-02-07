@@ -215,7 +215,7 @@ async function buildInfoCard({ name, level, exp, expRequired, stats, avatarUrl, 
   });
   composites.push({
     input: createTextSvg(
-      `EXP: ${formatCompactNumber(safeExp)} | ${CURRENCY_NAME}: ${formatCompactNumber(currency)}`,
+      `EXP: ${formatNumber(safeExp)} | ${CURRENCY_NAME}: ${formatNumber(currency)}`,
       LAYOUT.exp.width,
       LAYOUT.exp.height,
       { fontSize: 38, color: "#cbb185", fontWeight: 600 }
